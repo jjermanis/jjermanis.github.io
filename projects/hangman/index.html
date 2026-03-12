@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>HANGMAN</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+    body {
+        background: black;
+        color: #22BB66; /* PET-green */
+        font-family: "Courier New", Courier, monospace;
+        text-transform: uppercase;
+        margin: 0;
+        padding: 0;
+        overflow-x: hidden;
+    }
+
+    #title {
+        text-align: center;
+        font-size: 2.4rem;
+        letter-spacing: 0.25rem;
+        margin-top: 15px;
+    }
+
+    #main {
+        display: flex;
+        margin-top: 20px;
+        width: 100%;
+        box-sizing: border-box;
+        padding-left: 20px;
+        padding-right: 20px;
+    }
+
+    #hookArea {
+        width: 180px;
+        min-width: 180px;
+        height: 260px;
+    }
+
+    #lettersArea {
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 260px;
+        white-space: nowrap;
+    }
+
+    .slot {
+        display: inline-block;
+        min-width: 28px;
+        border-bottom: 2px solid #22BB66;
+        margin: 0 6px;
+        font-size: 1.6rem;
+        text-align: center;
+        padding-bottom: 6px;
+    }
+
+    .revealed {
+        border-bottom: none;
+        font-weight: bold;
+    }
+
+    #guessedBox {
+        margin: 25px auto 0 auto;
+        width: calc(100% - 40px);
+        max-width: 1100px;
+        border: 2px solid #22BB66;
+        padding: 10px;
+        min-height: 45px;
+        box-sizing: border-box;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .gLetter {
+        padding: 4px 6px;
+        border: 1px solid #226f33;
+        min-width: 22px;
+        text-align: center;
+        font-weight: bold;
+    }
+
+    #endMessage {
+        margin: 15px auto 0 auto;
+        width: calc(100% - 40px);
+        max-width: 1100px;
+        min-height: 30px;
+        font-size: 1.1rem;
+    }
+</style>
+</head>
+<body>
+
+<div id="title">HANGMAN</div>
+
+<div id="main">
+    <div id="hookArea">
+        <svg width="180" height="260" stroke="#22BB66" fill="none" stroke-width="3">
+            <!-- Hook -->
+            <line x1="40" y1="10" x2="40" y2="230"/>
+            <line x1="40" y1="10" x2="120" y2="10"/>
+            <path d="M120 10 C140 35 100 45 100 70"/>
+            <circle cx="100" cy="70" r="4" fill="#22BB66"/>
+
+            <!-- Hangman pieces -->
+            <circle id="p1" cx="100" cy="95" r="18" visibility="hidden" />
+            <line id="p2" x1="100" y1="113" x2="100" y2="165" visibility="hidden"/>
+            <line id="p3" x1="100" y1="125" x2="70"  y2="145" visibility="hidden"/>
+            <line id="p4" x1="100" y1="125" x2="130" y2="145" visibility="hidden"/>
+            <line id="p5" x1="100" y1="165" x2="80"  y2="200" visibility="hidden"/>
+            <line id="p6" x1="100" y1="165" x2="120" y2="200" visibility="hidden"/>
+        </svg>
+    </div>
+
+    <div id="lettersArea"></div>
+</div>
+
+<div id="guessedBox"></div>
+<div id="endMessage"></div>
+
+<script>
+/* ------------------------------
+   494 COMMON, 6–10 LETTER WORDS
+   ------------------------------ */
+const WORDS = [
+"ABSOLUTE","ACADEMIC","ACCOUNT","ACCURATE","ACQUIRE","ACTIVITIES","ACTUALLY",
+"ADDRESS","ADDITIONAL","ADJUSTED","ADVICE","ADVANCED","ADVISORY","ALMOST","AMAZING",
+"AMOUNT","ANALYST","ANCIENT","ANNUALLY","ANYONE","ANXIETY","APPROACH","AQUATIC","ARGUMENT",
+"ARIZONA","AROUND","ARRIVE","ARTICLE","ASSESSOR","ASSOCIATED","ATHLETIC","ATTENTION",
+"ATTITUDE","AUTOMATE","AVAILABLE",
+"BACKGROUND","BACKPACK","BALANCE","BANDWIDTH","BARRIER","BASEBALL","BATTERY","BEAUTIFUL",
+"BEGINNER","BEHAVIOR","BENEFACTOR","BENEFIT","BENEATH","BESIDES","BETWEEN","BLAZING",
+"BOOKSHELF","BOSTON","BOTTLE","BOUNDARY",
+"BRANCH","BREAKFAST","BRIDGE","BROADCAST","BROTHER","BUSINESS",
+"CABINET","CALIFORNIA","CAPABLE","CAPACITY","CAPTURE",
+"CARRIER","CENTRAL","CERTAIN","CHALLENGE","CHAMBER","CHANCE","CHAPTER","CHARITY",
+"CHEMIST","CHOSEN","CIRCUIT","CITIZEN","CLASSIFY","CLIMATE","CLOTHES","COLLECTS",
+"COLLEGE","COLORADO","COMMERCIAL","COMMAND","COMMUNITY","COMPANY","COMPLETE","COMPUTERS",
+"CONCEPT","CONCERN","CONFIRM","CONNECT","CONSIDERED","CONSIST","CONTACT",
+"CONTAIN","CONTEXT","CONTRACT","CONTINUED","CONTROL","CONSUME",
+"CONVERT","CONVINCE","CORRECT","COUNTRY","COUPLE","COURAGE","COURSE","COVERED",
+"CREATOR","CRITICAL","CULTURAL","CURRENT","CUSTOMS","DAMAGE","DANGEROUS",
+"DEBATE","DECENT","DECISION","DECLARE","DECREASE","DEFINE","DEDICATE",
+"DELAWARE","DELIVERY","DELIGHT","DEMOCRATIC","DENSITY",
+"DEPARTMENT","DEPOSIT","DESERT","DESIGN","DESIRE",
+"DETAILS","DETECTOR","DETERMINED","DEVELOPING","DEVICE",
+"DIAMOND","DIFFERENCE","DIFFICULTY","DIGITAL","DIRECT",
+"DISCOVER","DISCUSS","DISPLAY","DISTANT","DISTRICT","DRAINAGE","DRIVER",
+"ECONOMIC","EDITION","EDUCATE","EDUCATION","ELECTION","ELECTRIC",
+"ELEMENT","EMOTION","EMPIRE","EMPLOYEE","ENFORCE","ENJOYED","ENOUGH",
+"ENSURE","ENTIRE","EQUATOR","ERASED","EVIDENT","EVERYTHING","EXAMPLE","EXCITED","EXCLUDE",
+"EXPECT","EXPERIENCE","EXPERT","EXPLAIN","EXPLORE","EXTEND","EXTREME","FACTORY",
+"FAILURE","FASHION","FEATURE","FEELING","FELLOW","FEMALE","FICTION","FIGURE",
+"FINALLY","FINANCE","FINGER","FLORIDA","FOLLOWING","FOREIGN","FOREST","FORTUNE","FORWARD",
+"FOUNDATION","FREEDOM","FREQUENT","FRIENDS","FUNCTION","GALLERY","GARDENS","GENERAL",
+"GENETIC","GENUINE","GEORGIA","GOVERNMENT","GRADUAL","GRANTED",
+"GRAVITY","GROUND","HARMONY","HEALTHY","HEARING","HELPFUL","HISTORY","HOLIDAY",
+"HONESTY","HORIZON","HOSPITAL","HOUSING","HUMANITY","HUNTERS","IMAGINE","IMPACT","IMPOSED",
+"IMPULSE","IMPROVE","INCLUDING","INCREASED","INDIVIDUAL",
+"INDUSTRY","INITIAL","INJURED","INQUIRE","INSIGHT","INSPIRE","INTENSE","INTEREST",
+"INTERNAL","INVENT","INVOLVE","JACKET","JEALOUS","JEWELRY","JOURNAL","JUNIOR","JUSTICE","KENTUCKY","KITCHEN",
+"KNOWLEDGE","LANGUAGE","LAUGHTER","LEARNER","LECTURE","LIBRARY","LIGHTLY",
+"LIMITED","LOOKING","LOUISIANA",
+"MACHINE","MAGAZINE","MAGNETISM","MAJORITY","MANAGEMENT","MARKETS","MARYLAND","MATERIAL",
+"MEANING","MEASURE","MECHANISM","MEDITATION","MEMBERS","MENTION","MESSAGE","MICROPHONE",
+"MIDDLE","MIDNIGHT","MIGRATION","MINNESOTA","MIRACLE","MISLEADING","MISTAKE","MODERATELY",
+"MOMENT","MONITOR","MORNING","MOTION","MOTIVATED","MUSEUMS",
+"NARRATE","NASHVILLE","NATIVE","NATURAL","NEBRASKA",
+"NEITHER","NETWORK","NOTHING","NOTICE","NUMBER",
+"OBJECTS","OBLIGATED","OBSERVING","OBTAINING","OCCASIONAL","OCCUPYING","OFFICER",
+"OFFSHORE","OPENING",
+"OPERATING","OPINION","OPTIMIZED","OPTIONS","ORGANIC","ORIGINALS","OUTREACH","OUTCOME",
+"OUTSIDE","OWNERSHIP",
+"PACKAGE","PAINTED","PASSAGE","PATIENT","PATTERN","PAYMENT","PERCENT",
+"PERFECT","PERHAPS","PHOENIX","PICTURE","PLANNER","PLASTIC","PLAYERS","PLEASE","POINTED",
+"POLICY","POPULAR","POPULATION","PRESIDENT","PREVENT","PRIMARY","PRIVATE",
+"PROBLEM","PROCEED","PROCESS","PRODUCT","PRODUCTION","PROGRAM","PROJECT",
+"PROMOTE","PROGRESS","PROVIDE","PURPOSE","QUALITY","QUARTER","QUICKLY","QUESTIONS","QUIETLY","RADIANT",
+"RAILWAY","REACHES","READING","REALITY","RECEIVE","RECOGNIZED","RECORDS",
+"REFLECT","REGULAR","REJECTED","RELATED","RELATIVELY","REMEMBER","REQUEST","RESEARCH","RESPECT",
+"RESULTS","RETURN","REVIEW","ROUTINE","SACRAMENTO","SATISFY","SCHEDULE","SCHOOL","SCIENCE",
+"SECTION","SECTOR","SEIZURE","SENDING","SERVICE","SETTING","SHARING","SHORTLY","SILENCE",
+"SIMILAR","SIMPLE","SITUATE","SITUATION","SKETCH","SLEEPER","SOLIDLY",
+"SOLUTION","SOMETIME","SPEAKER","SPECIAL","STATION","STATEMENT",
+"STRUCTURES","STUDENT","SUBJECT","SUGGEST","SUPPLY","SUPPORT",
+"SUSTAIN","SYMBOLIC",
+"TACTICS","TALENTS","TAXATION","TEACHER","TECHNOLOGY","TELEPHONE","TEMPORARY","TENSION","TERMINAL",
+"TEXTURE","THERAPIST","THEATER","THINKING","THOUGHT","THOUSAND","THREATEN","TICKET","TIMELINE",
+"TOGETHER","TOLERANCE","TOURNAMENT","TRADITION","TRAINER","TRANSFER","TRANSPORT","TREASURE",
+"TRIANGLE","TROUBLE","TUTORIAL","TYPEWRITER","TYPOGRAPHY","ULTIMATE","UNABLE","UNDERSTAND","UNIFORM",
+"UNITED","UNIVERSITY","UPCOMING","USUALLY","VACATION","VALIDATE","VARIOUS","VEHICLE",
+"VERTICAL","VIRGINIA","VISION","VISIBLE","VOLCANO",
+"WANDERING","WAREHOUSE","WARMTH","WATERFALL","WAVELENGTH","WEALTHY","WEATHER","WELCOME","WELLBEING",
+"WHATEVER","WHEREAS","WHETHER","WHIMSICAL","WHIRLPOOL","WILDERNESS","WINDSHIELD","WIRELESS",
+"WISCONSIN","WITHOUT","WITNESS","WORKING","WRITING",
+"XENOPHOBE","YELLOW","YOUNGER","ZEALOT","ZODIAC","ZOMBIE"
+];
+
+/* State */
+let secret = "";
+let revealed = [];
+let guessed = new Set();
+let wrong = 0;
+let ended = false;
+
+/* DOM */
+const lettersArea = document.getElementById("lettersArea");
+const guessedBox   = document.getElementById("guessedBox");
+const endMessage   = document.getElementById("endMessage");
+
+/* Hangman SVG parts */
+const parts = [
+    document.getElementById("p1"),
+    document.getElementById("p2"),
+    document.getElementById("p3"),
+    document.getElementById("p4"),
+    document.getElementById("p5"),
+    document.getElementById("p6")
+];
+
+/* Start game */
+function newGame() {
+    secret = WORDS[Math.floor(Math.random() * WORDS.length)];
+    revealed = Array(secret.length).fill(false);
+    guessed.clear();
+    wrong = 0;
+    ended = false;
+    endMessage.textContent = "";
+    parts.forEach(p => p.setAttribute("visibility", "hidden"));
+    /* FOLLOWING used to count current words in WORDS */
+    /* endMessage.textContent = WORDS.length; */
+    render();
+}
+
+/* Render letters and guessed box */
+function render() {
+    lettersArea.innerHTML = "";
+    for (let i = 0; i < secret.length; i++) {
+        const d = document.createElement("div");
+        d.className = "slot" + (revealed[i] ? " revealed" : "");
+        d.textContent = revealed[i] ? secret[i] : "";
+        lettersArea.appendChild(d);
+    }
+
+    guessedBox.innerHTML = "";
+    [...guessed].sort().forEach(ch => {
+        const g = document.createElement("div");
+        g.className = "gLetter";
+        g.textContent = ch;
+        guessedBox.appendChild(g);
+    });
+}
+
+/* Handle guess */
+function guess(letter) {
+    if (ended) return;
+    if (guessed.has(letter)) return;
+
+    guessed.add(letter);
+
+    let found = false;
+    for (let i = 0; i < secret.length; i++) {
+        if (secret[i] === letter) {
+            revealed[i] = true;
+            found = true;
+        }
+    }
+
+    if (!found) {
+        wrong++;
+        if (wrong <= 6) {
+            parts[wrong - 1].setAttribute("visibility", "visible");
+        }
+    }
+
+    render();
+    checkEnd();
+}
+
+/* Check win or lose */
+function checkEnd() {
+    if (revealed.every(v => v)) {
+        ended = true;
+        endMessage.textContent = "YOU WIN! PRESS ENTER TO PLAY AGAIN.";
+    } else if (wrong >= 6) {
+        ended = true;
+        endMessage.textContent = `GAME OVER. THE WORD WAS ${secret}. PRESS ENTER TO PLAY AGAIN.`;
+    }
+}
+
+/* Keyboard input */
+document.addEventListener("keydown", e => {
+    if (ended && e.key === "Enter") {
+        newGame();
+        return;
+    }
+    if (/^[a-zA-Z]$/.test(e.key)) {
+        guess(e.key.toUpperCase());
+    }
+});
+
+/* Start initial game */
+newGame();
+</script>
+</body>
+</html>
