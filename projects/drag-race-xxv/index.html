@@ -1,0 +1,705 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Drag Race XXV</title>
+<style>
+  :root { --bg:#ffffff; --snow:#f6fbff; --muted:#666; }
+  html,body { height:100%; margin:0; font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial; background:var(--bg); color:#222; }
+  #container { max-width:1200px; margin:8px auto; padding:0 10px; }
+  header { text-align:center; margin-bottom:6px; }
+  h1 { margin:10px 0 2px 0; font-size:28px; letter-spacing:1px; }
+h1 {
+  margin: 10px 0 2px 0;
+  font-size: 32px;
+  letter-spacing: 2px;
+
+  /* Font stack: Impact first, fall back to existing fonts */
+  font-family: Impact, Haettenschweiler, "Arial Black",
+               Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+
+  /* Metallic silver gradient */
+  background: linear-gradient(
+    180deg,
+    #b5d5b5 0%,
+    #9fbf9f 25%,
+    #bdddbd 45%,
+    #acbcac 60%,
+    #acccac 75%,
+    #799979 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+  #canvas-wrap { background: linear-gradient(#ffffff, #f8fbff 70%); border-radius:6px; box-shadow: 0 6px 18px rgba(0,0,0,0.06); overflow:hidden; }
+  canvas { display:block; width:100%; height:300px; }
+  #controls { display:flex; justify-content:center; gap:18px; margin:10px 0; align-items:top; flex-wrap:wrap; }
+  .panel { background:#fff; border-radius:8px; padding:10px 12px; box-shadow:0 3px 8px rgba(0,0,0,0.04); min-width:180px; text-align:center; }
+  .start-btn { display:inline-block; padding:10px 14px; border-radius:8px; font-weight:700; cursor:pointer; user-select:none; border:2px solid #333; min-width:130px; }
+  .p1 { background: linear-gradient(#fff6f6,#ffecec); border-color:#b30000; color:#500; }
+  .p2 { background: linear-gradient(#f6fff6,#eaffef); border-color:#0a7a2b; color:#043a18; }
+  .small { font-size:13px; color:var(--muted); margin-top:6px; }
+  .rec { font-weight:700; }
+  #message { text-align:center; margin-top:8px; font-weight:800; min-height:22px; }
+  #tools { text-align:center; margin-top:10px; }
+  .tool-btn { padding:6px 10px; border-radius:6px; cursor:pointer; border:1px solid #ccc; background:#fff; margin:0 6px; }
+  @media (max-width:720px) {
+    canvas { height:420px; }
+    .panel { min-width:140px; }
+  }
+</style>
+</head>
+<body>
+  <div id="container">
+    <header>
+      <h1>DRAG RACE XXV</h1>
+    </header>
+
+    <div id="canvas-wrap">
+      <canvas id="c" width="1100" height="300"></canvas>
+    </div>
+
+    <div id="controls">
+      <div class="panel">
+        <div style="font-size:14px;font-weight:800">Swift Santa</div>
+        <div style="margin:8px 0" class="start-btn p1" id="btn1">Start (Q)</div>
+        <div class="small" id="rec1">Record: 0-0-0</div>
+      </div>
+
+      <div class="panel">
+        <div style="font-size:14px;font-weight:800">Nitro Nicolas</div>
+        <div style="margin:8px 0" class="start-btn p2" id="btn2">Start (P)</div>
+        <div class="small" id="rec2">Record: 0-0-0</div>
+      </div>
+    </div>
+
+    <div id="message"></div>
+
+    <div id="tools">
+      <button class="tool-btn" id="resetRace">Reset Race</button>
+      <button class="tool-btn" id="clearRecords">Clear Records</button>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // Canvas setup & DPI scaling
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+
+  function fitCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = Math.round(rect.width * dpr) || canvas.width;
+    canvas.height = Math.round(rect.height * dpr) || canvas.height;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  // ensure canvas has initial size style same as intrinsic for responsiveness
+  canvas.style.width = canvas.width + 'px';
+  canvas.style.height = canvas.height + 'px';
+  fitCanvas();
+  window.addEventListener('resize', fitCanvas);
+
+  // World measurements (use client size)
+  function W(){ return canvas.clientWidth; }
+  function H(){ return canvas.clientHeight; }
+
+  // finish line
+  function finishX(){ return W() - 110; }
+
+  // player definitions
+  const players = [
+    { id:1, name:'Swift Santa', key:'q', color:'#c90000', accent:'#ff4d4d', recKey:'dragrace_swift_rec' },
+    { id:2, name:'Nitro Nicolas', key:'p', color:'#0a8a2b', accent:'#3cff73', recKey:'dragrace_nitro_rec' }
+  ];
+
+  // load records from localStorage as [wins,losses,ties]
+  function loadRec(k) {
+    try {
+      const s = localStorage.getItem(k);
+      if (!s) return [0,0,0];
+      const arr = JSON.parse(s);
+      if (Array.isArray(arr) && arr.length===3) return arr;
+      return [0,0,0];
+    } catch { return [0,0,0]; }
+  }
+  function saveRec(k, arr) {
+    localStorage.setItem(k, JSON.stringify(arr));
+  }
+
+  // UI elements
+  const btn1 = document.getElementById('btn1');
+  const btn2 = document.getElementById('btn2');
+  const rec1El = document.getElementById('rec1');
+  const rec2El = document.getElementById('rec2');
+  const msgEl = document.getElementById('message');
+  const resetRaceBtn = document.getElementById('resetRace');
+  const clearRecordsBtn = document.getElementById('clearRecords');
+
+  // update record displays
+  function updateRecordDisplays() {
+    const r1 = loadRec(players[0].recKey);
+    const r2 = loadRec(players[1].recKey);
+    rec1El.innerText = `Record: ${r1[0]}-${r1[1]}-${r1[2]}`;
+    rec2El.innerText = `Record: ${r2[0]}-${r2[1]}-${r2[2]}`;
+  }
+  updateRecordDisplays();
+
+  // Train class with initial positions such that only first reindeer visible at start
+  const REINDEER = 8;
+  const RE_SPACING = 44; // px between reindeer centers
+  const CAR_WIDTH = 92;
+  const CAR_HEIGHT = 34;
+  const RIGHTMOST_VISIBLE_REX = 60; // x position of the rightmost reindeer visible initially
+
+  class Train {
+    constructor(player, laneY) {
+      this.player = player;
+      this.laneY = laneY;
+      this.reindeer = [];
+      // rightmost reindeer at RIGHTMOST_VISIBLE_REX
+      for (let i=0;i<REINDEER;i++){
+        const rx = RIGHTMOST_VISIBLE_REX - i*RE_SPACING;
+        this.reindeer.push({ x: rx, y: laneY });
+      }
+      // car left of reindeer line
+      const carX = RIGHTMOST_VISIBLE_REX - REINDEER*RE_SPACING - 18 - CAR_WIDTH;
+      this.car = { x: carX, y: laneY };
+      // velocity unit is pixels per movement tick (tick = 0.025s). Start at 0 until started.
+      this.velocityUnits = 0; // pixels per tick (0.025s)
+      this.started = false;
+      this.finished = false;
+      this.finishTime = null;
+    }
+    frontX(){ return this.car.x + CAR_WIDTH*0.85; }
+    reset() {
+      this.reindeer.length = 0;
+      for (let i=0;i<REINDEER;i++){
+        const rx = RIGHTMOST_VISIBLE_REX - i*RE_SPACING;
+        this.reindeer.push({ x: rx, y: this.laneY });
+      }
+      this.car.x = RIGHTMOST_VISIBLE_REX - REINDEER*RE_SPACING - 18 - CAR_WIDTH;
+      this.velocityUnits = 0;
+      this.started = false;
+      this.finished = false;
+      this.finishTime = null;
+    }
+    start() {
+      if (this.started || this.finished) return;
+      this.started = true;
+      this.velocityUnits = 0.25;
+    }
+    // move called every movement tick (25ms)
+    move() {
+      if (!this.started || this.finished) return;
+      const dx = this.velocityUnits; // pixels per tick
+      for (let r of this.reindeer) r.x += dx;
+      this.car.x += dx;
+    }
+    // called on acceleration check (every 100ms)
+    maybeAccelerate() {
+      if (!this.started || this.finished) return;
+      if (Math.random() < 0.8) {
+        this.velocityUnits += 0.25;
+      }
+    }
+  }
+
+  // create two trains on separate lanes
+  function laneYs() {
+    return [ H()*0.48, H()*0.70 ];
+  }
+  let trains = [];
+  function buildTrains() {
+    const ly = laneYs();
+    trains = [
+      new Train(players[0], ly[0]),
+      new Train(players[1], ly[1])
+    ];
+  }
+  buildTrains();
+
+  // Drawing utilities
+  function drawStaticBackground() {
+    // Pine forest at top - static (we do not animate or move it)
+    const topH = Math.max(80, H()*0.22);
+    // sky / top strip
+    ctx.fillStyle = '#dadaff';
+    ctx.fillRect(0,0,W(), topH);
+    // draw many pines (no time-based motion)
+    const pineCount = Math.ceil(W()/36) + 6;
+    for (let i=-2;i<pineCount;i++){
+      const baseX = i*36;
+      const baseY = topH - 10;
+      const height = 50 + (i%3)*6;
+      drawPine(baseX, baseY, height);
+    }
+    // horizon hill
+    ctx.fillStyle = '#f0f4ff';
+    ctx.beginPath();
+    ctx.moveTo(0, H()*0.3 + 18);
+    ctx.quadraticCurveTo(W()*0.4, H()*0.22, W(), H()*0.3 + 24);
+    ctx.lineTo(W(), H());
+    ctx.lineTo(0, H());
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawPine(x,y,h){
+    ctx.save();
+    // trunk
+    ctx.fillStyle = '#2d3b2d';
+    ctx.fillRect(x+8, y + h*0.9, 6, h*0.2);
+    // three layered triangles
+    ctx.fillStyle = '#0f6b2b';
+    ctx.beginPath();
+    ctx.moveTo(x, y + h*0.2);
+    ctx.lineTo(x + 16, y);
+    ctx.lineTo(x + 32, y + h*0.2);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x-4, y + h*0.5);
+    ctx.lineTo(x + 16, y + h*0.1);
+    ctx.lineTo(x + 36, y + h*0.5);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x-8, y + h*0.8);
+    ctx.lineTo(x + 16, y + h*0.35);
+    ctx.lineTo(x + 40, y + h*0.8);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
+  // reindeer drawing
+  function drawReindeer(carX, x, y, color, speed = 0) {
+    ctx.save();
+    ctx.translate(x, y);
+
+    // animation phase (faster speed = faster legs)
+    const phase = carX/4;
+    let legSwing = 8;
+    let isFloating = false;
+    if (speed < 0.05)
+    	legSwing = 0;
+    else if (speed < 6)
+    	legSwing = Math.sin(phase) * 6;
+    else
+        isFloating = true;
+
+    // body
+    ctx.fillStyle = '#8d5a33';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 14, 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // neck + head
+    ctx.fillRect(10, -8, 18, 6);
+    ctx.beginPath();
+    ctx.ellipse(26, -6, 8, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // eye
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.arc(28, -7, 1.6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // antlers
+    ctx.strokeStyle = '#4a2e1b';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(30, -12);
+    ctx.lineTo(34, -20);
+    ctx.moveTo(30, -12);
+    ctx.lineTo(36, -14);
+    ctx.stroke();
+
+    // legs (animated)
+    ctx.strokeStyle = '#6f4226';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    if (!isFloating)
+    {
+        ctx.moveTo(-6, 8); ctx.lineTo(-6 + legSwing, 18);
+        ctx.moveTo(4, 8);  ctx.lineTo(4 - legSwing, 18);
+        ctx.moveTo(14, 8); ctx.lineTo(14 + legSwing, 20);
+        ctx.moveTo(20, 8); ctx.lineTo(20 - legSwing, 20);
+    }
+    else
+    {
+        ctx.moveTo(-6, 8); ctx.lineTo(-6 - legSwing, 18);
+        ctx.moveTo(4, 8);  ctx.lineTo(4 - legSwing, 18);
+        ctx.moveTo(14, 8); ctx.lineTo(14 - legSwing, 20);
+        ctx.moveTo(20, 8); ctx.lineTo(20 - legSwing, 20);
+    }
+
+    ctx.stroke();
+
+    // harness
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3.2;
+    ctx.beginPath();
+    ctx.moveTo(-8, -2);
+    ctx.lineTo(24, -2);
+    ctx.stroke();
+
+    // ring
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(-8, -2, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // Santa inside car only (standing Santa removed)
+function drawCarWithSanta(carX, carY, suitColor, accent) {
+  ctx.save();
+  const w = CAR_WIDTH, h = CAR_HEIGHT;
+  ctx.translate(carX, carY);
+
+  // shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.08)';
+  ctx.fillRect(6, h*0.85, w*0.86, 6);
+
+  // car body
+  ctx.fillStyle = '#222';
+  roundRect(ctx,0,-h/2,w,h,6); ctx.fill();
+
+  // accent stripe
+  ctx.fillStyle = accent;
+  ctx.fillRect(12, -h/2 + 8, w - 24, 8);
+
+  // windshield
+  ctx.fillStyle = 'rgba(255,255,255,0.15)';
+  ctx.fillRect(w-48, -h/2 + 2, 34, 14);
+
+  // wheels
+  ctx.fillStyle = '#111';
+  ctx.beginPath(); ctx.ellipse(18, h/2 - 2, 10,10,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(w-18, h/2 - 2, 10,10,0,0,Math.PI*2); ctx.fill();
+
+  // --- Standing Santa moved into car ---
+  ctx.save();
+  ctx.translate(w - 55, -8); // position inside car
+  ctx.fillStyle = suitColor; ctx.fillRect(-10,-12,20,18);
+  ctx.fillStyle = '#1a1a1a'; ctx.fillRect(-10,-2,20,5); // belt
+  ctx.beginPath(); ctx.fillStyle = '#ffdfc4'; ctx.arc(0,-18,8,0,Math.PI*2); ctx.fill(); // head
+  ctx.fillStyle = suitColor; ctx.beginPath(); ctx.moveTo(-12,-24); ctx.lineTo(12,-24); ctx.lineTo(0,-36); ctx.closePath();       ctx.fill(); 
+  // hat
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0,-36,3,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0,-12,6,0,Math.PI*2); ctx.fill(); // beard
+  ctx.restore();
+
+  ctx.restore();
+  }
+
+  // harness connecting reindeers to car (line)
+  function drawHarness(reindeer, carX, carY, color) {
+    ctx.save();
+    ctx.strokeStyle = color; ctx.lineWidth = 3.2; ctx.beginPath();
+    for (let i=0;i<reindeer.length;i++){
+      const r = reindeer[i];
+      const rx = r.x - 8, ry = r.y - 2;
+      if (i===0) ctx.moveTo(rx, ry);
+      else ctx.lineTo(rx, ry);
+    }
+    ctx.lineTo(carX + 8, carY - 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // small utility: rounded rectangle path
+  function roundRect(ctx,x,y,w,h,r){
+    if (typeof r === 'undefined') r = 6;
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  // *** TRAFFIC LIGHT STATE ***
+  let redLightOn = true;
+  let greenLightOn = false;
+  let preStartPhase = true; // In red-light period
+  let falseStartResolved = false;
+
+  let redLightDuration = 0;
+  let redLightStartTime = 0;
+
+  function beginRedLightPhase() {
+    preStartPhase = true;
+    falseStartResolved = false;
+    redLightOn = true;
+    greenLightOn = false;
+    redLightDuration = 2000 + Math.random()*3000;
+    redLightStartTime = Date.now();
+  }
+
+  beginRedLightPhase();
+
+  function updateTrafficLight() {
+    if (preStartPhase) {
+      if (Date.now() - redLightStartTime >= redLightDuration) {
+        redLightOn = false;
+        greenLightOn = true;
+        preStartPhase = false;
+      }
+    }
+  }
+
+  function drawTrafficLight() {
+    const boxW = 200;
+    const boxH = 60; // twice as tall
+    const y = H()*0.92 - boxH/2;
+    const x = (W() - boxW) / 2; // center horizontally
+    ctx.save();
+    ctx.fillStyle = '#333';
+    ctx.fillRect(x, y, boxW, boxH);
+    ctx.fillStyle = redLightOn ? '#ff0000' : '#440000';
+    ctx.beginPath(); ctx.arc(x+50, y+boxH/2, 20, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = greenLightOn ? '#00ff00' : '#003300';
+    ctx.beginPath(); ctx.arc(x+150, y+boxH/2, 20, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+
+  // draw entire scene (background static + trains)
+  function render() {
+    // background snow
+    ctx.clearRect(0,0,W(),H());
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,W(),H());
+    // static forest and hill
+    drawStaticBackground();
+
+    // draw finish line (right)
+    const fx = finishX();
+    ctx.fillStyle = '#222'; ctx.fillRect(fx-6, 116, 8, H()-122);
+    // checkered banner vertical panels
+    const bw = 18, bh = 28;
+    const bannerTop = H()*0.4;
+    for (let y = bannerTop; y < H()*0.9; y += bh) {
+      for (let i=0;i<3;i++){
+        ctx.fillStyle = ((i + Math.floor(y/bh)) % 2===0) ? '#000' : '#fff';
+        ctx.fillRect(fx + 8 + i*bw, y, bw, bh);
+      }
+    }
+    // FINISH text rotated
+    ctx.save(); ctx.translate(fx + 30, H()*0.4); ctx.rotate(Math.PI/2);
+    ctx.fillStyle = '#555'; ctx.font = '700 14px sans-serif'; ctx.fillText('FINISH', 0, 0); ctx.restore();
+
+    // draw trains
+    for (let t of trains) {
+      // harness
+      drawHarness(t.reindeer, t.car.x, t.car.y, t.player.color);
+
+      // reindeer (draw rightmost first for natural overlap)
+      for (let i=0;i<t.reindeer.length;i++){
+        const r = t.reindeer[i];
+        if (r.x > -200 && r.x < W() + 200) {
+          drawReindeer(t.car.x, r.x, r.y, t.player.color, t.velocityUnits);
+        }
+      }
+      // car with Santa
+      if (t.car.x > -300 && t.car.x < W() + 300) {
+        drawCarWithSanta(t.car.x, t.car.y, t.player.color, t.player.accent);
+      }
+    }
+
+    // HUD small indicators
+    ctx.save();
+    ctx.font = '700 13px sans-serif';
+    ctx.fillStyle = '#333';
+    const p1Speed = Math.floor(trains[0].velocityUnits * 14);
+    ctx.fillText(`${players[0].name} (Q) — RED — ${p1Speed} MPH`, 12, 22);
+    ctx.fillStyle = players[0].color; ctx.fillRect(12,26,48,6);
+    ctx.fillStyle = '#333';
+    const p2Speed = Math.floor(trains[1].velocityUnits * 14);
+    ctx.fillText(`${players[1].name} (P) — GREEN — ${p2Speed} MPH`, 12, 48);
+    ctx.fillStyle = players[1].color; ctx.fillRect(12, 52, 48, 6);
+    ctx.restore();
+
+    drawTrafficLight();
+  }
+
+  // Game ticking: movement ticks every 25ms, acceleration checks every 100ms
+  let tickInterval = null;
+  const TICK_MS = 25;
+  const ACCEL_CHECK_MS = 100;
+  let raceActive = false;
+  let raceFinished = false;
+
+  function startTickLoop() {
+    if (tickInterval) return;
+    let accelAccumulator = 0;
+    tickInterval = setInterval(() => {
+      // movement tick
+      for (let t of trains) t.move();
+      accelAccumulator += TICK_MS;
+      if (accelAccumulator >= ACCEL_CHECK_MS) {
+        // perform acceleration checks
+        for (let t of trains) t.maybeAccelerate();
+        accelAccumulator = 0;
+      }
+
+      // after movement check finishes - evaluate both before updating records to detect ties
+      const fx = finishX();
+      const finishedFlags = trains.map(t => !t.finished && t.frontX() >= fx);
+      // There are three possibilities: none, one, or both finished this tick
+      if (!raceFinished) {
+        if (finishedFlags[0] && finishedFlags[1]) {
+          raceFinished = true;
+          trains[0].finished = trains[1].finished = true;
+          trains[0].finishTime = trains[1].finishTime = Date.now();
+          handleRaceEnd('tie');
+        } else if (finishedFlags[0]) {
+          raceFinished = true;
+          trains[0].finished = true;
+          trains[0].finishTime = Date.now();
+          handleRaceEnd('p1');
+        } else if (finishedFlags[1]) {
+          raceFinished = true;
+          trains[1].finished = true;
+          trains[1].finishTime = Date.now();
+          handleRaceEnd('p2');
+        }
+      }
+    }, TICK_MS);
+  }
+  function stopTickLoop() {
+    if (tickInterval) { clearInterval(tickInterval); tickInterval = null; }
+  }
+
+  function resolveFalseStart(offender) {
+    falseStartResolved = true;
+    raceFinished = true;
+    stopTickLoop();
+    const r1 = loadRec(players[0].recKey);
+    const r2 = loadRec(players[1].recKey);
+    if (offender === 'both') {
+      r1[2] += 1; r2[2] += 1;
+      msgEl.innerText = 'TIE! Both racers false-started.';
+    } else if (offender === 'p1') {
+      r1[1] += 1; r2[0] += 1;
+      msgEl.innerText = `${players[1].name} WINS! (False start by ${players[0].name})`;
+    } else if (offender === 'p2') {
+      r2[1] += 1; r1[0] += 1;
+      msgEl.innerText = `${players[0].name} WINS! (False start by ${players[1].name})`;
+    }
+    saveRec(players[0].recKey, r1);
+    saveRec(players[1].recKey, r2);
+    updateRecordDisplays();
+  }
+
+  function handleRaceEnd(result) {
+    // update records depending on result
+    const r1 = loadRec(players[0].recKey);
+    const r2 = loadRec(players[1].recKey);
+    if (result === 'tie') {
+      r1[2] += 1; r2[2] += 1;
+      msgEl.innerText = `TIE! Both racers reached the finish at the same time.`;
+    } else if (result === 'p1') {
+      r1[0] += 1; r2[1] += 1;
+      msgEl.innerText = `${players[0].name} WINS!`;
+    } else if (result === 'p2') {
+      r2[0] += 1; r1[1] += 1;
+      msgEl.innerText = `${players[1].name} WINS!`;
+    }
+    saveRec(players[0].recKey, r1);
+    saveRec(players[1].recKey, r2);
+    updateRecordDisplays();
+    stopTickLoop();
+  }
+
+  function attemptStart(playerIndex) {
+    const t = trains[playerIndex];
+    if (t.finished || t.started) return;
+    if (preStartPhase && redLightOn && !falseStartResolved) {
+      if (!trains[0].started && !trains[1].started) {
+        resolveFalseStart(playerIndex===0 ? 'p1' : 'p2');
+      } else {
+        if (playerIndex===0 && trains[1].started) resolveFalseStart('p1');
+        else if (playerIndex===1 && trains[0].started) resolveFalseStart('p2');
+        else resolveFalseStart('both');
+      }
+      return;
+    }
+    t.start();
+    if (!raceFinished && tickInterval===null) startTickLoop();
+  }
+
+  btn1.addEventListener('click', ()=> attemptStart(0));
+  btn2.addEventListener('click', ()=> attemptStart(1));
+
+  window.addEventListener('keydown', (e) => {
+    const key = e.key.toLowerCase();
+    if (key === players[0].key) {
+      attemptStart(0);
+      e.preventDefault();
+    } else if (key === players[1].key) {
+      attemptStart(1);
+      e.preventDefault();
+    } else if (key === 'r') {
+      resetRace();
+      e.preventDefault();
+    } else if (key === 'c') {
+      clearRecords();
+      e.preventDefault();
+    }
+  });
+
+  // Reset race (keeps records)
+  function resetRace() {
+    for (let t of trains) t.reset();
+    raceFinished = false;
+    msgEl.innerText = '';
+    // restart tick loop only if any racer already started (rare) - otherwise stop ticks
+    stopTickLoop();
+    beginRedLightPhase();
+    render();
+  }
+  resetRaceBtn.addEventListener('click', resetRace);
+  canvas.addEventListener('dblclick', resetRace);
+
+  // Clear records
+  function clearRecords() {
+    saveRec(players[0].recKey, [0,0,0]);
+    saveRec(players[1].recKey, [0,0,0]);
+    updateRecordDisplays();
+    msgEl.innerText = 'Records cleared.';
+  }
+  clearRecordsBtn.addEventListener('click', clearRecords);
+
+  // initial render
+  render();
+
+  // animation loop (render as frequently as possible; movement is updated on tick intervals)
+  function animate() {
+    updateTrafficLight();
+    render();
+    requestAnimationFrame(animate);
+  }
+  requestAnimationFrame(animate);
+
+  // Keep canvas resolution updated on resize
+  window.addEventListener('resize', ()=> {
+    fitCanvas();
+    // reposition lanes and rebuild trains to keep visual balance
+    const ly = laneYs();
+    // reposition trains relative to new lane Ys
+    for (let i=0;i<trains.length;i++){
+      trains[i].laneY = ly[i];
+      // move reindeer Ys and car Y
+      for (let r of trains[i].reindeer) r.y = ly[i];
+      trains[i].car.y = ly[i];
+    }
+    render();
+  });
+})();
+</script>
+</body>
+</html>

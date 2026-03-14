@@ -1,54 +1,207 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+
 <meta charset="UTF-8">
-<title>John Jermanis</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>John Jermanis | Software Developer</title>
 
 <style>
-body {
-    font-family: Arial, sans-serif;
-    margin: 40px;
-    max-width: 900px;
+
+body{
+    font-family: Arial, Helvetica, sans-serif;
+    margin:0;
+    background:#f4f4f4;
+    color:#333;
 }
 
-h1 {
-    border-bottom: 2px solid #444;
+header{
+    background:#222;
+    color:white;
+    padding:30px 20px;
 }
 
-.project {
-    margin-bottom: 20px;
+header h1{
+    margin:0;
 }
 
-a {
-    text-decoration: none;
-    color: #2a5db0;
+nav{
+    margin-top:10px;
 }
 
-a:hover {
-    text-decoration: underline;
+nav a{
+    color:white;
+    margin-right:20px;
+    text-decoration:none;
 }
+
+nav a:hover{
+    text-decoration:underline;
+}
+
+.container{
+    max-width:1000px;
+    margin:auto;
+    padding:30px;
+}
+
+.hero{
+    margin-bottom:40px;
+}
+
+.projects{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(400px,1fr));
+    gap:20px;
+}
+
+.card{
+    background:white;
+    padding:20px;
+    border-radius:8px;
+    box-shadow:0 2px 6px rgba(0,0,0,0.1);
+}
+
+.card img{
+    width:100%;
+    border-radius:6px;
+}
+
+.card h3{
+    margin-top:10px;
+}
+
+.buttons a{
+    display:inline-block;
+    margin-right:10px;
+    margin-top:10px;
+    padding:8px 12px;
+    background:#0077cc;
+    color:white;
+    text-decoration:none;
+    border-radius:4px;
+}
+
+.buttons a:hover{
+    background:#005fa3;
+}
+
+footer{
+    text-align:center;
+    padding:30px;
+    background:#222;
+    color:white;
+    margin-top:40px;
+}
+
 </style>
 
 </head>
 
 <body>
 
+<header>
+
 <h1>John Jermanis</h1>
 
+<nav>
+<a href="#">Home</a>
+<a href="#games">Games</a>
+<a href="https://www.linkedin.com/in/johnjermanis/">LinkedIn</a>
+<a href="./LICENSE">License</a>
+</nav>
+
+</header>
+
+<div class="container">
+
+<section class="hero">
+
+<h2>Software Developer</h2>
+
 <p>
-Software developer, with experience in the full life cycle of software development, 
-including requirements, architecture, design, and implementation.
+I'm a full-stack developer, with experience in the cycle of software projects, including requirements, architecture, design, and implementation.
 </p>
 
-<h2>Projects</h2>
-
-<div class="project">
-<h3>Hangman</h3>
 <p>
-Implementation of the Hangman word-game using Chat GPT-5.
+Here, I share some games I have developed as a hobby. These games are intended for a computer - they are unlikely to work on a mobile device.
 </p>
-<a href="projects/hangman/index.html">Play Demo</a>
+
+</section>
+
+<section id="games">
+
+<h2>Featured Games</h2>
+
+<div class="projects">
+
+<div class="card">
+
+	<img src="assets/drag-race-xxv.png">
+
+	<h3>Drag Race XXV</h3>
+
+	<p>
+	Drag Race, Ho Ho Ho Style, using Chat GPT-5.
+	</p>
+
+	<div class="buttons">
+		<a href="projects/drag-race-xxv/index.html">Play Game</a>
+		<a href="projects/drag-race-xxv/README.html">README</a>
+	</div>
+
 </div>
 
+<div class="card">
+
+	<img src="assets/hangman.png">
+
+	<h3>Hangman</h3>
+
+	<p>
+	Implementation of the Hangman word-game using Chat GPT-5.
+	</p>
+
+	<div class="buttons">
+		<a href="projects/hangman/index.html">Play Game</a>
+		<a href="projects/hangman/README.html">README</a>
+	</div>
+
+</div>
+
+
+
+</div>
+
+</section>
+
+
+<section class="license">
+
+<h2>License</h2>
+
+<p>
+Source code available under the <a href="./LICENSE">MIT License</a>
+</p>
+
+</section>
+
+
+</div>
+
+<footer>
+
+<p>
+LinkedIn:
+<a style="color:white;" href="https://www.linkedin.com/in/johnjermanis/">
+https://www.linkedin.com/in/johnjermanis/
+</a>
+</p>
+
+</footer>
+
 </body>
+
 </html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<meta charset="UTF-8">
+
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.2.0/github-markdown.min.css">
+
+<style>
+body{
+    box-sizing:border-box;
+    min-width:200px;
+    max-width:900px;
+    margin:40px auto;
+}
+</style>
+
+</head>
+
+<body>
+
+<article class="markdown-body">
+
+
+<h1 id="ai-hangman">ai-hangman</h1>
+<p>Implementation of the Hangman word-game using Chat GPT-5.</p>
+<h2 id="overview">Overview</h2>
+<p>This is a version of the classic game of Hangman. A random word (from the game&#39;s list) is chosen. The word starts as empty underlined spaces - one space for each letter. You can guess using any of the 26 letters in the alphabet. If you guess all of the letters in a word, you&#39;ll win!</p>
+<h2 id="directions">Directions</h2>
+<p>On each turn, tap on the letter to guess. Just tap the letter - no need to hit Enter.</p>
+<p>In each game, letters cannot be repeated. If you guess a letter in a game that has already been guessed, it is ignored.</p>
+<p>If a guess matches one or more times in the word, it will show all instances of that letter in the word, in place.</p>
+<p>If a guess does not match any letters, the hangman victim is built by one piece. One by one, pieces are added to the victim: the head, body, two arms, and two legs. When there have been six missing guesses, all six pieces will be shown, and the player loses.</p>
+<p>If they guess all letters in word, the player wins.</p>
+<h2 id="details">Details</h2>
+<p>There are over 400 different words to guess in the game. Every word has 6 to 10 letters. There are at least 5 different letters used in each word. Words are all of reasonably common use (Top 5000 used). Most are common words; there are some proper (aka capitialized) nouns.</p>
+<h2 id="from-release-1-build-8-on-11-28-25-">From Release #1 (Build 8 on 11/28/25)</h2>
+<ul>
+<li><p>Generated basic UI.</p>
+</li>
+<li><p>Contains 323 common words.</p>
+</li>
+</ul>
+<h2 id="from-release-2-build-14-on-2-4-26-">From Release #2 (Build 14 on 2/4/26)</h2>
+<ul>
+<li><p>Game was an annoying shade of green. Dimmed it a bit to make it easier.</p>
+</li>
+<li><p>Contains 494 words (common words and proper names).</p>
+</li>
+<li><p>Game had very few 9 and 10 letter-words (1 and 2 for each). Now, there are 50 9-letter words and 40 10-letter words.</p>
+</li>
+<li><p>7-letter words were the most common, by far. Added 8-letter words for a total of 87.</p>
+</li>
+<li><p>About 20 duplicates or very similar words were removed.</p>
+</li>
+<li><p>Added some states and capitals.</p>
+</li>
+<li><p>Added some words for rare letters: J, Q, X, and Z.</p>
+</li>
+<li><p>Added some words for letters that had been less used than expected: B, M, O, T, and W.</p>
+</li>
+</ul>
+
+
+</article>
+
+</body>
+
+</html>
