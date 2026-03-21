@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<meta charset="UTF-8">
+
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.2.0/github-markdown.min.css">
+
+<style>
+body{
+    box-sizing:border-box;
+    min-width:200px;
+    max-width:900px;
+    margin:40px auto;
+}
+</style>
+
+</head>
+
+<body>
+
+<article class="markdown-body">
+
+
+<h1 id="ai-3d-maze">ai-3d-maze</h1>
+<p>Basic game for walking through generated mazes (developed in Chat GPT-5).</p>
+<h2 id="overview">Overview</h2>
+<p>This game generates a maze, and the player can navigate through the maze from start to finish. This isn&#39;t intended as a full fledged game - players can navigate through the maze, but there are no timers, no obstacles, no enemies. The intent is for this to be a base version of a game, and to derive full games from this.</p>
+<h2 id="directions">Directions</h2>
+<p>There are two windows to look at on the screen. On the left-side is a 3D view of the maze, seen from the perspective of the player. On the right-side is a 2D view, looking top-down on the maze. In the 2D view, the map gets automatically updated based on what you see in the 3D view. Both windows represent the same maze, from a different point of view.</p>
+<p>The controls for the game are the arrow keys. Left and right arrow turn 90 degrees in the matching direction. The up arrow steps one square forward. You cannot walk through walls, and there are no ways to get through a wall.</p>
+<p>Looking at the 2D map, the player will always start in the upper-left corner of the map. The goal is to get to the lower-right corner of the map. The exit stands out - it is green.</p>
+<p>In the upper-right corner above the game, there is a button to change the size of the map. Changing the selection automatically restarts the game at that new size.</p>
+<p>In the lower-right corner under the game, there is a Reset Maze button. When the player has made it to the exit (in the lower-right corner), clicking the Reset Maze button starts a new game. A new maze is generated, and the player moves back to the top-left corner.</p>
+<h2 id="details">Details</h2>
+<p>Truly, this is intended as a basis for &quot;true&quot; games being implemented. The alternates will use this the initial version. Each alternate will be modified for what&#39;s needed.</p>
+<p>This application uses Depth-First Search as the algorithm to generate the map. Each map will utilizes all the available squares. Also, there are never any loops. This is fine: a good starting point that might change in an alternate game.</p>
+<h2 id="from-release-1-build-14-on-2-2-26-">From Release #1 (Build 14 on 2/2/26)</h2>
+<ul>
+<li><p>Game generates maps where each map is rendered with a 2D and 3D view.</p>
+</li>
+<li><p>The walls are red, with the exception of the exit, which is green.</p>
+</li>
+<li><p>The particular shade of colors of the walls darken based on distance.</p>
+</li>
+<li><p>Provide a modal that allows the map size to change.</p>
+</li>
+</ul>
+
+
+</article>
+
+</body>
+
+</html>
