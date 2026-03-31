@@ -68,6 +68,8 @@ nav a:hover{
     padding:20px;
     border-radius:8px;
     box-shadow:0 2px 6px rgba(0,0,0,0.1);
+    display:flex;
+    flex-direction:column;
 }
 
 .card img{
@@ -102,6 +104,10 @@ footer{
     margin-top:40px;
 }
 
+.bottom{
+    margin-top:auto;
+}
+
 </style>
 
 </head>
@@ -115,8 +121,8 @@ footer{
 <nav>
 <a href="#">Home</a>
 <a href="#games">Games</a>
-<a href="https://www.linkedin.com/in/johnjermanis/">LinkedIn</a>
 <a href="./LICENSE.txt">License</a>
+<a href="https://www.linkedin.com/in/johnjermanis/">LinkedIn</a>
 </nav>
 
 </header>
@@ -132,7 +138,11 @@ I'm a full-stack developer, with experience in the cycle of software projects, i
 </p>
 
 <p>
-Here, I share some games I have developed as a hobby. These games are intended for a computer - they are unlikely to work on a mobile device.
+Here, I share some games I have developed as a hobby. <b>To try a game, click the Play Game button in the corresponding box.</b> Clicking on the README button will provide an overview, instruction, and details about the game.
+</p>
+
+<p>
+These games are intended for a computer. <b>Most of these games are unlikely to work on a mobile device.</b> If a game has some sort of support running on mobile, it will have a Mobile section within README, with details.
 </p>
 
 </section>
@@ -147,51 +157,57 @@ Here, I share some games I have developed as a hobby. These games are intended f
 
 	<img src="assets/3d-maze.png">
 
-	<h3>3D Maze</h3>
+	<div class="bottom">
 
-	<p>
-	Basic game for walking through generated mazes (developed in Chat GPT-5).
-	</p>
+		<h3>3D Maze</h3>
 
-	<div class="buttons">
-		<a href="projects/3d-maze/index.html">Play Game</a>
-		<a href="projects/3d-maze/README.html">README</a>
+		<p>
+		Basic game for walking through generated mazes (developed in Chat GPT-5).
+		</p>
+
+		<div class="buttons">
+			<a href="projects/3d-maze/index.html">Play Game</a>
+			<a href="projects/3d-maze/README.html">README</a>
+		</div>
 	</div>
-
 </div>
 
 <div class="card">
 
 	<img src="assets/drag-race-xxv.png">
 
-	<h3>Drag Race XXV</h3>
+	<div class="bottom">
 
-	<p>
-	Drag Race, Ho Ho Ho Style, using Chat GPT-5.
-	</p>
+		<h3>Drag Race XXV</h3>
 
-	<div class="buttons">
-		<a href="projects/drag-race-xxv/index.html">Play Game</a>
-		<a href="projects/drag-race-xxv/README.html">README</a>
+		<p>
+		Drag Race, Ho Ho Ho Style, using Chat GPT-5.
+		</p>
+
+		<div class="buttons">
+			<a href="projects/drag-race-xxv/index.html">Play Game</a>
+			<a href="projects/drag-race-xxv/README.html">README</a>
+		</div>
 	</div>
-
 </div>
 
 <div class="card">
 
 	<img src="assets/hangman.png">
 
-	<h3>Hangman</h3>
+	<div class="bottom">
 
-	<p>
-	Implementation of the Hangman word-game using Chat GPT-5.
-	</p>
+		<h3>Hangman</h3>
 
-	<div class="buttons">
-		<a href="projects/hangman/index.html">Play Game</a>
-		<a href="projects/hangman/README.html">README</a>
+		<p>
+		Implementation of the Hangman word-game using Chat GPT-5.
+		</p>
+
+		<div class="buttons">
+			<a href="projects/hangman/index.html">Play Game</a>
+			<a href="projects/hangman/README.html">README</a>
+		</div>
 	</div>
-
 </div>
 
 

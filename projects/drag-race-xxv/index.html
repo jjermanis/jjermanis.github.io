@@ -1,13 +1,20 @@
 <!doctype html>
 <html lang="en">
 <head>
+
+<link rel="icon"
+href="data:image/svg+xml,
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>
+<text y='.9em' font-size='90'>🎅</text>
+</svg>">
+
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Drag Race XXV</title>
 <style>
   :root { --bg:#ffffff; --snow:#f6fbff; --muted:#666; }
   html,body { height:100%; margin:0; font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial; background:var(--bg); color:#222; }
-  #container { max-width:1200px; margin:8px auto; padding:0 10px; }
+  #container { max-width:1100px; margin:8px auto; padding:0 10px; }
   header { text-align:center; margin-bottom:6px; }
   h1 { margin:10px 0 2px 0; font-size:28px; letter-spacing:1px; }
 h1 {
@@ -49,6 +56,24 @@ h1 {
     canvas { height:420px; }
     .panel { min-width:140px; }
   }
+
+  /* License MIT used in this file */
+  #license {
+      position: fixed;
+      bottom: 5px;
+      right: 10px;
+      font-size: 10px;
+      opacity: 0.5;
+  }
+  #license a {
+      color: inherit;
+      text-decoration: none;
+  }
+  #license a:hover {
+      text-decoration: underline;
+  }  
+  /* License */
+
 </style>
 </head>
 <body>
@@ -77,11 +102,17 @@ h1 {
 
     <div id="message"></div>
 
-    <div id="tools">
-      <button class="tool-btn" id="resetRace">Reset Race</button>
-      <button class="tool-btn" id="clearRecords">Clear Records</button>
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; align-items:center; margin-top:10px;">
+      <div>
+        <button class="tool-btn" id="mode1P">👤 1 Player</button>
+        <button class="tool-btn" id="mode2P">👥 2 Players</button>
+      </div>
+      <div id="tools" style="text-align:center;">
+        <button class="tool-btn" id="resetRace">Next Race</button>
+        <button class="tool-btn" id="clearRecords">Clear Records</button>
+      </div>
+      <div></div>
     </div>
-  </div>
 
 <script>
 (() => {
@@ -135,8 +166,34 @@ h1 {
   const rec1El = document.getElementById('rec1');
   const rec2El = document.getElementById('rec2');
   const msgEl = document.getElementById('message');
+  const mode1Btn = document.getElementById('mode1P');
+  const mode2Btn = document.getElementById('mode2P');
   const resetRaceBtn = document.getElementById('resetRace');
   const clearRecordsBtn = document.getElementById('clearRecords');
+  const panel2 = document.getElementById('btn2').closest('.panel');
+
+  let gameMode = '2P';
+  let lastP1InputType = 'keyboard';
+
+  function updateModeUI() {
+    if (gameMode === '1P') {
+      panel2.style.display = 'none';
+    } else {
+      panel2.style.display = '';
+    }
+  }
+
+  mode1Btn.addEventListener('click', () => {
+    gameMode = '1P';
+    updateModeUI();
+    resetRace();
+  });
+
+  mode2Btn.addEventListener('click', () => {
+    gameMode = '2P';
+    updateModeUI();
+    resetRace();
+  });
 
   // update record displays
   function updateRecordDisplays() {
@@ -449,6 +506,18 @@ function drawCarWithSanta(carX, carY, suitColor, accent) {
         redLightOn = false;
         greenLightOn = true;
         preStartPhase = false;
+
+        if (gameMode === '1P') {
+          let delay;
+          if (lastP1InputType === 'touch') {
+            delay = 300 + Math.random() * 250;
+          } else {
+            delay = 200 + Math.random() * 200;
+          }
+          setTimeout(() => {
+            attemptStart(1);
+          }, delay);
+        }
       }
     }
   }
@@ -629,19 +698,26 @@ function drawCarWithSanta(carX, carY, suitColor, accent) {
       return;
     }
     t.start();
+
     if (!raceFinished && tickInterval===null) startTickLoop();
   }
 
-  btn1.addEventListener('click', ()=> attemptStart(0));
-  btn2.addEventListener('click', ()=> attemptStart(1));
+  btn1.addEventListener('click', ()=> {
+    lastP1InputType = 'touch';
+    attemptStart(0);
+  });
+  btn2.addEventListener('click', ()=> {
+    if (gameMode === '2P') attemptStart(1);
+  });
 
   window.addEventListener('keydown', (e) => {
     const key = e.key.toLowerCase();
     if (key === players[0].key) {
+      lastP1InputType = 'keyboard';
       attemptStart(0);
       e.preventDefault();
     } else if (key === players[1].key) {
-      attemptStart(1);
+      if (gameMode === '2P') attemptStart(1);
       e.preventDefault();
     } else if (key === 'r') {
       resetRace();
@@ -701,5 +777,8 @@ function drawCarWithSanta(carX, carY, suitColor, accent) {
   });
 })();
 </script>
+<div id="license">
+    <a href="../../LICENSE.txt">MIT License</a>
+</div>
 </body>
 </html>
