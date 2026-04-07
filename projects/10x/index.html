@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>10X</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='8' fill='%230d0d1a'/><text x='2' y='46' font-family='Georgia,serif' font-weight='900' font-size='48' fill='white'>10</text></svg>">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; } 
+
+  body {
+    background: #0a0a0f;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'Share Tech Mono', monospace;
+    color: #e0e0ff;
+  }
+
+  #game-screen {
+    width: 800px;
+    height: 400px;
+    background: #0d0d1a;
+    border: 2px solid #00ffe740;
+    box-shadow: 0 0 40px #00ffe720, inset 0 0 60px #00001a;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Scanline overlay */
+  #game-screen::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent,
+      transparent 3px,
+      rgba(0,0,0,0.08) 3px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  /* ── 10 + exponent display ── */
+  #base-display {
+    position: absolute;
+    top: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: flex-start;
+    line-height: 1;
+  }
+
+  #base-ten {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 64px;
+    font-weight: 900;
+    color: #fff;
+    text-shadow: 0 0 20px #fff8, 0 0 40px #00ffe740;
+    line-height: 1;
+  }
+
+  #exponent-wrapper {
+    position: relative;
+    width: 48px;
+    height: 48px;
+  }
+
+  .exp-digit {
+    position: absolute;
+    top: 0;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 30px;
+    font-weight: 700;
+    color: #00ffe7;
+    text-shadow: 0 0 12px #00ffe7;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  /* ── Low / High numbers ── */
+  #low-number, #high-number {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: #7f7fff;
+    text-shadow: 0 0 10px #7f7fff80;
+    transition: color 0.2s;
+  }
+  #low-number  { left: 32px;  text-align: left;  }
+  #high-number { right: 32px; text-align: right; }
+
+  /* ── Center guess display ── */
+  #center-guess {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 36px;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 0 16px #fff6;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  /* travelling guess */
+  .travelling-guess {
+    position: absolute;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 36px;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 0 16px #fff6;
+    pointer-events: none;
+    white-space: nowrap;
+    /* top/left set by JS */
+  }
+
+  /* ── Bottom status ── */
+  #guess-count-display {
+    position: absolute;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 20px;
+    color: #a0a0cc;
+    white-space: nowrap;
+    text-align: center;
+  }
+
+  #win-message {
+    position: absolute;
+    top: 58%;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 40px;
+    font-weight: 900;
+    color: gold;
+    text-shadow: 0 0 30px gold, 0 0 60px gold80;
+    display: none;
+    white-space: nowrap;
+    z-index: 50;
+  }
+
+  #game-over-msg {
+    position: absolute;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 15px;
+    color: #ff4466;
+    white-space: nowrap;
+    text-align: center;
+    display: none;
+  }
+
+  /* ── Victory screen ── */
+  #victory-msg {
+    position: absolute;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 28px;
+    font-weight: 900;
+    color: gold;
+    text-shadow: 0 0 20px gold, 0 0 40px #ff0;
+    white-space: nowrap;
+    text-align: center;
+    display: none;
+    z-index: 55;
+  }
+
+  #fireworks-canvas {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 40;
+    display: none;
+  }
+
+  #new-game-btn {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 8px 18px;
+    background: transparent;
+    border: 2px solid #ff4466;
+    color: #ff4466;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    display: none;
+    transition: background 0.2s, color 0.2s;
+    z-index: 60;
+  }
+  #new-game-btn:hover {
+    background: #ff4466;
+    color: #0a0a0f;
+  }
+
+  /* ── DEBUG ── */
+  #debug-display {
+    position: absolute;
+    bottom: 8px;
+    left: 12px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: #ff6b0088;
+  }
+
+  /* ── Input area (below screen) ── */
+  #input-area {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+
+  #input-area label {
+    font-size: 16px;
+    color: #6060aa;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  #guess-input {
+    background: #0d0d1a;
+    border: 2px solid #00ffe740;
+    color: #00ffe7;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    text-align: center;
+    width: 320px;
+    padding: 10px 16px;
+    outline: none;
+    letter-spacing: 0.1em;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  #guess-input:focus {
+    border-color: #00ffe7;
+    box-shadow: 0 0 20px #00ffe730;
+  }
+  #guess-input:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  #invalid-msg {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    color: #ff4466;
+    height: 18px;
+    text-align: center;
+  }
+
+  /* License MIT used in this file */
+  #license {
+      position: fixed;
+      bottom: 5px;
+      right: 10px;
+      font-size: 10px;
+      opacity: 0.5;
+  }
+  #license a {
+      color: inherit;
+      text-decoration: none;
+  }
+  #license a:hover {
+      text-decoration: underline;
+  }  
+  /* License */
+
+</style>
+</head>
+<body>
+
+<div id="game-screen">
+  <!-- Top center: "10" + exponent -->
+  <div id="base-display">
+    <span id="base-ten">10</span>
+    <div id="exponent-wrapper">
+      <!-- exp digits injected here -->
+    </div>
+  </div>
+
+  <!-- Left / Right boundary numbers -->
+  <div id="low-number">1</div>
+  <div id="high-number">10</div>
+
+  <!-- Center guess display (typed number) -->
+  <div id="center-guess"></div>
+
+  <!-- Guess count -->
+  <div id="guess-count-display"></div>
+
+  <!-- Win message -->
+  <div id="win-message">You Found It!</div>
+
+  <!-- Fireworks -->
+  <canvas id="fireworks-canvas"></canvas>
+
+  <!-- Victory -->
+  <div id="victory-msg">You Win!</div>
+
+  <!-- Game over -->
+  <div id="game-over-msg"></div>
+  <button id="new-game-btn">New Game</button>
+
+  <!-- Debug -->
+  <div id="debug-display"></div>
+</div>
+
+<div id="input-area">
+  <label>Enter Your Guess</label>
+  <input type="number" id="guess-input" placeholder="?" autocomplete="off" />
+  <div id="invalid-msg"></div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+const DEBUG = false;
+// ─────────────────────────────────────────────
+
+const $ = id => document.getElementById(id);
+
+let exponent = 1;
+let maxNumber = 10;
+let randomNumber = 0;
+let guessesRemaining = 0;
+let lowBound = 1;
+let highBound = 10;
+let gameActive = false;
+let animating = false;
+let invalidTimer = null;
+
+// ── Helpers ──
+function fmt(n) {
+  return Math.floor(n).toLocaleString('en-US');
+}
+
+function calcGuesses(exp) {
+  // smallest k such that 2^k > 10^exp
+  const target = Math.pow(10, exp);
+  let k = 1;
+  while (Math.pow(2, k) <= target) k++;
+  return k;
+}
+
+function randomInt(min, max) {
+  // inclusive both ends
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+// ── Init / New Game ──
+function initGame() {
+  stopFireworks();
+  $('victory-msg').style.display = 'none';
+  exponent = 1;
+  startRound(true);
+}
+
+function startRound(fresh) {
+  gameActive = true;
+  animating = false;
+  maxNumber = Math.pow(10, exponent);
+  lowBound = 1;
+  highBound = maxNumber;
+  randomNumber = randomInt(1, maxNumber);
+  guessesRemaining = calcGuesses(exponent);
+
+  $('low-number').textContent = fmt(lowBound);
+  $('high-number').textContent = fmt(highBound);
+  $('center-guess').textContent = '';
+  $('win-message').style.display = 'none';
+  $('game-over-msg').style.display = 'none';
+  $('new-game-btn').style.display = 'none';
+  $('invalid-msg').textContent = '';
+  $('guess-input').disabled = false;
+  resetInputWithPrefix();
+
+  updateGuessCount();
+  updateDebug();
+
+  if (fresh) {
+    // exponent 1 is never displayed — clear the wrapper
+    $('exponent-wrapper').innerHTML = '';
+  }
+}
+
+function updateGuessCount() {
+  if (!gameActive) return;
+  if (guessesRemaining === 1) {
+    $('guess-count-display').textContent = 'Last Guess Remaining!';
+  } else {
+    $('guess-count-display').textContent = `You have ${guessesRemaining} guesses remaining`;
+  }
+}
+
+function updateDebug() {
+  if (DEBUG) {
+    $('debug-display').textContent = `[DEBUG] answer: ${fmt(randomNumber)}`;
+  } else {
+    $('debug-display').textContent = '';
+  }
+}
+
+// ── Exponent animation ──
+// The exponent-wrapper is 48px wide, positioned top-right of "10"
+// Outgoing: slides right and off. Incoming: enters from right, slides to position (left:0).
+
+function renderExponentFresh(exp) {
+  const wrapper = $('exponent-wrapper');
+  wrapper.innerHTML = '';
+  const span = document.createElement('span');
+  span.className = 'exp-digit';
+  span.textContent = exp;
+  span.style.left = '4px';
+  wrapper.appendChild(span);
+}
+
+function animateExponentChange(newExp, callback) {
+  const wrapper = $('exponent-wrapper');
+  const existing = wrapper.querySelector('.exp-digit');
+
+  const outgoingDelay = existing ? 1000 : 0;
+  if (existing) {
+    existing.style.transition = 'transform 1s linear, opacity 1s linear';
+    const expRect = existing.getBoundingClientRect();
+    const screenRect = document.getElementById('game-screen').getBoundingClientRect();
+    const distToExit = screenRect.right - expRect.left + 10;
+    existing.style.transform = `translateX(${distToExit}px)`;
+    existing.style.opacity = '0';
+  }
+
+  // If newExp is null (victory), just wait for outgoing then callback
+  if (newExp === null) {
+    setTimeout(() => {
+      if (existing && existing.parentNode) existing.remove();
+      if (callback) callback();
+    }, outgoingDelay);
+    return;
+  }
+
+  // Incoming: start off to the right, slide in
+  const incoming = document.createElement('span');
+  incoming.className = 'exp-digit';
+  incoming.textContent = newExp;
+  incoming.style.left = '4px';
+  const wrapperRect = document.getElementById('exponent-wrapper').getBoundingClientRect();
+  const screenRect2 = document.getElementById('game-screen').getBoundingClientRect();
+  const distFromRight = screenRect2.right - wrapperRect.left + 10;
+  incoming.style.transform = `translateX(${distFromRight}px)`;
+  incoming.style.opacity = '0';
+  wrapper.appendChild(incoming);
+
+  // After outgoing is gone, remove it and start incoming
+  setTimeout(() => {
+    if (existing && existing.parentNode) existing.remove();
+    incoming.style.transition = 'transform 1s linear, opacity 0.4s linear';
+    incoming.style.transform = 'translateX(0px)';
+    incoming.style.opacity = '1';
+    setTimeout(() => {
+      if (callback) callback();
+    }, 1000);
+  }, outgoingDelay);
+}
+
+// ── Travelling guess animation ──
+function getElementCenter(el) {
+  const r = el.getBoundingClientRect();
+  const sr = $('game-screen').getBoundingClientRect();
+  return {
+    x: r.left + r.width / 2 - sr.left,
+    y: r.top + r.height / 2 - sr.top
+  };
+}
+
+function animateTravelling(guessValue, direction, callback) {
+  // direction: 'left' (guess < target) or 'right' (guess > target)
+  const screen = $('game-screen');
+  const screenRect = screen.getBoundingClientRect();
+
+  // Create floating clone in center
+  const el = document.createElement('div');
+  el.className = 'travelling-guess';
+  el.textContent = fmt(guessValue);
+
+  // Position at center of screen
+  const cx = 400; // screen width / 2
+  const cy = 200; // screen height / 2
+
+  el.style.left = '0px';
+  el.style.top = '0px';
+  el.style.transformOrigin = 'center center';
+
+  screen.appendChild(el);
+
+  // Measure element size
+  const elRect = el.getBoundingClientRect();
+  const elW = elRect.width;
+  const elH = elRect.height;
+
+  // Center it
+  el.style.left = (cx - elW / 2) + 'px';
+  el.style.top  = (cy - elH / 2) + 'px';
+
+  // Target: left boundary or right boundary element center
+  const targetEl = direction === 'left' ? $('low-number') : $('high-number');
+  const targetRect = targetEl.getBoundingClientRect();
+  const targetX = targetRect.left + targetRect.width / 2 - screenRect.left;
+
+  const destLeft = targetX - elW / 2;
+  const duration = 400; // ms
+
+  el.style.transition = `left ${duration}ms cubic-bezier(0.4,0,1,1)`;
+  // force reflow
+  el.getBoundingClientRect();
+  el.style.left = destLeft + 'px';
+
+  setTimeout(() => {
+    el.remove();
+    callback();
+  }, duration + 50);
+}
+
+// ── Matching prefix helpers ──
+function getMatchingPrefix() {
+  const lo = String(Math.floor(lowBound));
+  const hi = String(Math.floor(highBound));
+  if (lo.length !== hi.length) return '';
+  let prefix = '';
+  for (let i = 0; i < lo.length; i++) {
+    if (lo[i] === hi[i]) prefix += lo[i];
+    else break;
+  }
+  return prefix;
+}
+
+function resetInputWithPrefix() {
+  const prefix = getMatchingPrefix();
+  $('guess-input').value = prefix;
+  $('center-guess').textContent = prefix ? fmt(parseInt(prefix, 10)) : '';
+  $('guess-input').focus();
+}
+
+// ── Guess handling ──
+function submitGuess() {
+  if (!gameActive || animating) return;
+
+  const raw = $('guess-input').value.trim();
+  if (raw === '') return;
+
+  const guess = parseInt(raw, 10);
+  if (isNaN(guess) || guess < lowBound || guess > highBound) {
+    showInvalid();
+    return;
+  }
+
+  // Show guess in center
+  $('center-guess').textContent = fmt(guess);
+  $('guess-input').value = '';
+
+  if (guess === randomNumber) {
+    // WIN
+    $('center-guess').style.color = 'gold';
+    $('center-guess').style.textShadow = '0 0 24px gold, 0 0 48px gold';
+    $('win-message').style.display = 'block';
+    $('guess-count-display').textContent = '';
+    $('guess-input').disabled = true;
+    gameActive = false;
+
+    setTimeout(() => {
+      $('center-guess').style.color = '';
+      $('center-guess').style.textShadow = '';
+      $('win-message').style.display = 'none';
+      $('center-guess').textContent = '';
+      levelUp();
+    }, 2000);
+
+  } else {
+    guessesRemaining--;
+
+    if (guess > randomNumber) {
+      // too high → travel right
+      animating = true;
+      $('guess-input').disabled = true;
+      $('center-guess').textContent = '';
+      animateTravelling(guess, 'right', () => {
+        highBound = guess - 1;
+        $('high-number').textContent = fmt(highBound);
+        animating = false;
+        $('guess-input').disabled = !gameActive;
+        checkGameOver();
+        if (gameActive) resetInputWithPrefix();
+      });
+    } else {
+      // too low → travel left
+      animating = true;
+      $('guess-input').disabled = true;
+      $('center-guess').textContent = '';
+      animateTravelling(guess, 'left', () => {
+        lowBound = guess + 1;
+        $('low-number').textContent = fmt(lowBound);
+        animating = false;
+        $('guess-input').disabled = !gameActive;
+        checkGameOver();
+        if (gameActive) resetInputWithPrefix();
+      });
+    }
+  }
+}
+
+function checkGameOver() {
+  if (guessesRemaining <= 0) {
+    gameActive = false;
+    $('guess-input').disabled = true;
+    $('guess-count-display').textContent = '';
+    $('game-over-msg').style.display = 'block';
+    $('game-over-msg').textContent = `Game Over — the number was ${fmt(randomNumber)}`;
+    $('new-game-btn').style.display = 'block';
+  } else {
+    updateGuessCount();
+    if ($('guess-input').disabled === false) $('guess-input').focus();
+  }
+}
+
+// ── Fireworks ──
+let fireworksAnimId = null;
+
+function showVictory() {
+  gameActive = false;
+  $('guess-input').disabled = true;
+  $('guess-count-display').textContent = '';
+  $('center-guess').textContent = '';
+  $('victory-msg').style.display = 'block';
+  $('new-game-btn').style.display = 'block';
+  startFireworks();
+}
+
+function startFireworks() {
+  const canvas = $('fireworks-canvas');
+  canvas.style.display = 'block';
+  canvas.width = 800;
+  canvas.height = 400;
+  const ctx = canvas.getContext('2d');
+  const particles = [];
+
+  const COLORS = [
+    '#ff4466', '#00ffe7', '#ffd700', '#ff8c00',
+    '#c77dff', '#ffffff', '#00ff88', '#ff6bff'
+  ];
+
+  function spawnBurst() {
+    const x = 80 + Math.random() * 640;
+    const y = 40 + Math.random() * 260;
+    const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+    const count = 48 + Math.floor(Math.random() * 24);
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.3;
+      const speed = 1.5 + Math.random() * 3.5;
+      particles.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        alpha: 1,
+        color,
+        radius: 1.5 + Math.random() * 1.5,
+        decay: 0.013 + Math.random() * 0.009,
+        gravity: 0.06
+      });
+    }
+  }
+
+  // Spawn bursts on a staggered schedule
+  const burstTimes = [];
+  for (let i = 0; i < 18; i++) {
+    burstTimes.push(i * 400 + Math.random() * 200);
+  }
+  const startTime = performance.now();
+  burstTimes.forEach(t => setTimeout(spawnBurst, t));
+
+  function loop(now) {
+    ctx.clearRect(0, 0, 800, 400);
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += p.gravity;
+      p.vx *= 0.98;
+      p.alpha -= p.decay;
+      if (p.alpha <= 0) { particles.splice(i, 1); continue; }
+
+      ctx.save();
+      ctx.globalAlpha = p.alpha;
+      ctx.fillStyle = p.color;
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = 6;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    fireworksAnimId = requestAnimationFrame(loop);
+  }
+
+  fireworksAnimId = requestAnimationFrame(loop);
+}
+
+function stopFireworks() {
+  if (fireworksAnimId) {
+    cancelAnimationFrame(fireworksAnimId);
+    fireworksAnimId = null;
+  }
+  const canvas = $('fireworks-canvas');
+  canvas.style.display = 'none';
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, 800, 400);
+}
+
+function levelUp() {
+  animating = true;
+  $('guess-input').disabled = true;
+  $('guess-count-display').textContent = '';
+
+  if (exponent === 9) {
+    // Final level beaten — trigger victory
+    animateExponentChange(null, () => {
+      showVictory();
+    });
+    return;
+  }
+
+  const nextExp = exponent + 1;
+
+  animateExponentChange(nextExp, () => {
+    exponent = nextExp;
+    animating = false;
+    startRound(false);
+  });
+}
+
+function showInvalid() {
+  if (invalidTimer) clearTimeout(invalidTimer);
+  $('invalid-msg').textContent = 'Invalid Guess';
+  invalidTimer = setTimeout(() => {
+    $('invalid-msg').textContent = '';
+    invalidTimer = null;
+  }, 1000);
+}
+
+// ── Event Listeners ──
+$('guess-input').addEventListener('input', () => {
+  const raw = $('guess-input').value.trim();
+  if (raw === '' || isNaN(parseInt(raw, 10))) {
+    $('center-guess').textContent = '';
+  } else {
+    $('center-guess').textContent = fmt(parseInt(raw, 10));
+  }
+});
+
+$('guess-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') submitGuess();
+});
+
+$('new-game-btn').addEventListener('click', () => {
+  initGame();
+});
+
+// ── Start ──
+initGame();
+</script>
+<div id="license">
+    <a href="../../LICENSE.txt">MIT License</a>
+</div>
+</body>
+</html>

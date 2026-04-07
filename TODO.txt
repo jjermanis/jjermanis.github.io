@@ -1,0 +1,3 @@
+
+* When you click on a game image on the main screen, show them full screen image of that pic.
+* Create a split between Featured Games and All Games
