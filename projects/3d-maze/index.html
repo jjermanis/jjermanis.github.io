@@ -94,6 +94,23 @@ canvas {
     margin-top: 16px;
 }
 
+  /* License MIT used in this file */
+  #license {
+      position: fixed;
+      bottom: 8px;
+      right: 12px;
+      font-size: 11px;
+      opacity: 0.5;
+  }
+  #license a {
+      color: #aaaaaa;
+      text-decoration: none;
+  }
+  #license a:hover {
+      text-decoration: underline;
+  }  
+  /* License */
+
 </style>
 </head>
 <body>
@@ -419,5 +436,10 @@ function loop() {
 initGame();
 loop();
 </script>
+
+<div id="license">
+    <a href="../../LICENSE.txt">MIT License</a>
+</div>
+
 </body>
 </html>

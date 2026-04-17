@@ -30,6 +30,29 @@ TEST BEFORE DEPLOYING TO WEBSITE.
 
 3) Run it locally. You should see the license. THE LINK WILL NOT WORK. That is OK.
 
+Note: I have seen one case where this did not work. It failed because there was no
+default color defined in the app's style. It went to the default dark blue for a 
+link, with a black background. It could not be seen. To fix, I used this as a
+replacement for Step 1:
+  /* License MIT used in this file */
+  #license {
+      position: fixed;
+      bottom: 8px;
+      right: 12px;
+      font-size: 11px;
+      opacity: 0.5;
+  }
+  #license a {
+      color: #aaaaaa;
+      text-decoration: none;
+  }
+  #license a:hover {
+      text-decoration: underline;
+  }  
+  /* License */
+One might want to change that color, depending on the background.
+
+
 4) Copy the file to the jjermanis.github.io site where the games get deployed.
 \jjermanis.github.io\projects\PROJECT_FOLDER
 This should also be tested, and THE LINK SHOULD WORK.
