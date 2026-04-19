@@ -85,25 +85,29 @@ href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 
         font-weight: bold;
     }
 
-#keyboard {
-    display: none;
-    margin-top: 10px;
-    text-align: center;
-}
+    #keyboard {
+        display: none;
+        margin-top: 10px;
+        text-align: center;
+        max-width: 600px;   /* keeps rows from stretching too wide */
+        margin-left: auto;
+        margin-right: auto;
+    }
 
-.key {
-    display: inline-block;
-    margin: 2px;
-    padding: 4px;
-    border: 1px solid #00FF00;
-    color: inherit;
-    background: black;
-    font-family: inherit;
-}
+    .key {
+        display: inline-block;
+        width: 28px;        /* wider tap target */
+        margin: 6px;
+        padding: 6px 0;
+        border: 1px solid #00FF00;
+        color: inherit;
+        background: black;
+        font-family: inherit;
+    }
 
-.key.used {
-    opacity: 0.3;
-}
+    .key.used {
+        opacity: 0.3;
+    }
 
     #endMessage {
         margin: 15px auto 0 auto;
@@ -112,6 +116,26 @@ href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 
         min-height: 30px;
         font-size: 1.1rem;
     }
+
+
+#newGameBtn {
+    display: none;
+    margin-top: 10px;
+    padding: 4px 10px;
+    border: 1px solid currentColor;
+    color: inherit;
+    background: black;
+    text-align: center;
+    cursor: pointer;
+    width: fit-content;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+#newGameBtn:active {
+    background: currentColor;
+    color: black;
+}
 
   /* License MIT used in this file */
   #license {
@@ -160,6 +184,7 @@ href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 
 
 <div id="keyboard"></div>
 <div id="guessedBox"></div>
+<div id="newGameBtn" style="display:none;">NEW GAME</div>
 <div id="endMessage"></div>
 
 <script>
@@ -251,6 +276,9 @@ let ended = false;
 const lettersArea = document.getElementById("lettersArea");
 const guessedBox   = document.getElementById("guessedBox");
 const endMessage   = document.getElementById("endMessage");
+// TEMP TEST
+const IS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+//const IS_TOUCH = true;
 
 /* Hangman SVG parts */
 const parts = [
@@ -264,22 +292,29 @@ const parts = [
 
 // SHOW KEYBOARD ON TOUCH DEVICES
 const kb = document.getElementById("keyboard");
-if ("ontouchstart" in window) {
+if (IS_TOUCH) {
     kb.style.display = "block";
 }
 
 // BUILD KEYS
-"ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").forEach(letter => {
-    const k = document.createElement("div");
-    k.textContent = letter;
-    k.className = "key";
+const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
-    k.onclick = () => {
-        // simulate real keyboard input
-        document.dispatchEvent(new KeyboardEvent("keydown", { key: letter }));
-    };
+[letters.slice(0,13), letters.slice(13)].forEach(row => {
+    const rowDiv = document.createElement("div");
 
-    kb.appendChild(k);
+    row.forEach(letter => {
+        const k = document.createElement("div");
+        k.textContent = letter;
+        k.className = "key";
+
+        k.onclick = () => {
+            document.dispatchEvent(new KeyboardEvent("keydown", { key: letter }));
+        };
+
+        rowDiv.appendChild(k);
+    });
+
+    kb.appendChild(rowDiv);
 });
 
 /* Start game */
@@ -287,10 +322,11 @@ function newGame() {
     secret = WORDS[Math.floor(Math.random() * WORDS.length)];
     revealed = Array(secret.length).fill(false);
     guessed.clear();
+document.getElementById("newGameBtn").style.display = "none";
     wrong = 0;
     ended = false;
     endMessage.textContent = "";
-document.querySelectorAll(".key").forEach(k => k.classList.remove("used"));
+    document.querySelectorAll(".key").forEach(k => k.classList.remove("used"));
     parts.forEach(p => p.setAttribute("visibility", "hidden"));
     /* FOLLOWING used to count current words in WORDS */
     /* endMessage.textContent = WORDS.length; */
@@ -347,9 +383,15 @@ function checkEnd() {
     if (revealed.every(v => v)) {
         ended = true;
         endMessage.textContent = "YOU WIN! PRESS ENTER TO PLAY AGAIN.";
+        if (IS_TOUCH) {
+            document.getElementById("newGameBtn").style.display = "block";
+        }
     } else if (wrong >= 6) {
         ended = true;
         endMessage.textContent = `GAME OVER. THE WORD WAS ${secret}. PRESS ENTER TO PLAY AGAIN.`;
+        if (IS_TOUCH) {
+            document.getElementById("newGameBtn").style.display = "block";
+        }
     }
 }
 
@@ -369,9 +411,11 @@ document.addEventListener("keydown", e => {
     }
     if (/^[a-zA-Z]$/.test(e.key)) {
         guess(e.key.toUpperCase());
-markKey(letter);
+        markKey(letter);
     }
 });
+
+document.getElementById("newGameBtn").onclick = newGame;
 
 /* Start initial game */
 newGame();
