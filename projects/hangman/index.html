@@ -9,7 +9,8 @@ href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 
 <style>
     body {
         background: black;
-        color: #22BB66; /* PET-green */
+        --main-color: #22BB66;  /* PET-green */
+        color: var(--main-color);
         font-family: "Courier New", Courier, monospace;
         text-transform: uppercase;
         margin: 0;
@@ -22,6 +23,39 @@ href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 
         font-size: 2.4rem;
         letter-spacing: 0.25rem;
         margin-top: 15px;
+    }
+
+    #menuContainer {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        text-align: right;
+    }
+
+    #menuIcon {
+        cursor: pointer;
+        user-select: none;
+        font-size: 2em;
+    }
+
+    #menuDropdown {
+        display: none;
+        margin-top: 6px;
+        border: 1px solid currentColor;
+        padding: 6px;
+        background: black;
+    }
+
+    .menuTitle {
+        margin-bottom: 4px;
+    }
+
+    .menuItem {
+        cursor: pointer;
+    }
+
+    .menuItem:hover {
+        text-decoration: underline;
     }
 
     #main {
@@ -51,7 +85,7 @@ href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 
     .slot {
         display: inline-block;
         min-width: 28px;
-        border-bottom: 2px solid #22BB66;
+        border-bottom: 2px solid currentcolor;
         margin: 0 6px;
         font-size: 1.6rem;
         text-align: center;
@@ -67,7 +101,7 @@ href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 
         margin: 25px auto 0 auto;
         width: calc(100% - 40px);
         max-width: 1100px;
-        border: 2px solid #22BB66;
+        border: 2px solid currentcolor;
         padding: 10px;
         min-height: 45px;
         box-sizing: border-box;
@@ -79,10 +113,35 @@ href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 
 
     .gLetter {
         padding: 4px 6px;
-        border: 1px solid #226f33;
+        border: 1px solid currentcolor;
         min-width: 22px;
         text-align: center;
         font-weight: bold;
+    }
+
+    #keyboard {
+        display: none;
+        margin-top: 10px;
+        text-align: center;
+        max-width: 600px;   /* keeps rows from stretching too wide */
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .key {
+        display: inline-block;
+        width: 28px;        
+        margin: 6px;
+        padding: 6px 0;
+        border: 1px solid currentcolor;
+        color: inherit;
+        background: black;
+        opacity: 1;
+        font: inherit;
+    }
+
+    .key.used {
+        opacity: 0.5;
     }
 
     #endMessage {
@@ -91,6 +150,25 @@ href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 
         max-width: 1100px;
         min-height: 30px;
         font-size: 1.1rem;
+    }
+
+    #newGameBtn {
+        display: none;
+        margin-top: 10px;
+        padding: 4px 10px;
+        border: 1px solid currentColor;
+        color: inherit;
+        background: black;
+        text-align: center;
+        cursor: pointer;
+        width: fit-content;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    #newGameBtn:active {
+        background: currentColor;
+        color: black;
     }
 
   /* License MIT used in this file */
@@ -116,14 +194,23 @@ href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 
 
 <div id="title">HANGMAN</div>
 
+<div id="menuContainer">
+    <div id="menuIcon">≡</div>
+    <div id="menuDropdown">
+        <div class="menuTitle">COLOR</div>
+        <div class="menuItem" data-color="#22BB66">GREEN</div>
+        <div class="menuItem" data-color="#DDDDDD">WHITE</div>
+    </div>
+</div>
+
 <div id="main">
     <div id="hookArea">
-        <svg width="180" height="260" stroke="#22BB66" fill="none" stroke-width="3">
+        <svg width="180" height="260" stroke="currentColor" fill="none" stroke-width="3">
             <!-- Hook -->
             <line x1="40" y1="10" x2="40" y2="230"/>
             <line x1="40" y1="10" x2="120" y2="10"/>
             <path d="M120 10 C140 35 100 45 100 70"/>
-            <circle cx="100" cy="70" r="4" fill="#22BB66"/>
+            <circle cx="100" cy="70" r="4" fill="currentColor"/>
 
             <!-- Hangman pieces -->
             <circle id="p1" cx="100" cy="95" r="18" visibility="hidden" />
@@ -138,19 +225,21 @@ href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 
     <div id="lettersArea"></div>
 </div>
 
+<div id="keyboard"></div>
 <div id="guessedBox"></div>
+<div id="newGameBtn" style="display:none;">NEW GAME</div>
 <div id="endMessage"></div>
 
 <script>
 /* ------------------------------
-   494 COMMON, 6–10 LETTER WORDS
+   500 COMMON, 6–10 LETTER WORDS
    ------------------------------ */
 const WORDS = [
 "ABSOLUTE","ACADEMIC","ACCOUNT","ACCURATE","ACQUIRE","ACTIVITIES","ACTUALLY",
 "ADDRESS","ADDITIONAL","ADJUSTED","ADVICE","ADVANCED","ADVISORY","ALMOST","AMAZING",
 "AMOUNT","ANALYST","ANCIENT","ANNUALLY","ANYONE","ANXIETY","APPROACH","AQUATIC","ARGUMENT",
 "ARIZONA","AROUND","ARRIVE","ARTICLE","ASSESSOR","ASSOCIATED","ATHLETIC","ATTENTION",
-"ATTITUDE","AUTOMATE","AVAILABLE",
+"ATTITUDE","AUGUST","AUTOMATE","AVAILABLE",
 "BACKGROUND","BACKPACK","BALANCE","BANDWIDTH","BARRIER","BASEBALL","BATTERY","BEAUTIFUL",
 "BEGINNER","BEHAVIOR","BENEFACTOR","BENEFIT","BENEATH","BESIDES","BETWEEN","BLAZING",
 "BOOKSHELF","BOSTON","BOTTLE","BOUNDARY",
@@ -163,7 +252,7 @@ const WORDS = [
 "CONTAIN","CONTEXT","CONTRACT","CONTINUED","CONTROL","CONSUME",
 "CONVERT","CONVINCE","CORRECT","COUNTRY","COUPLE","COURAGE","COURSE","COVERED",
 "CREATOR","CRITICAL","CULTURAL","CURRENT","CUSTOMS","DAMAGE","DANGEROUS",
-"DEBATE","DECENT","DECISION","DECLARE","DECREASE","DEFINE","DEDICATE",
+"DEBATE","DECEMBER","DECENT","DECISION","DECLARE","DECREASE","DEFINE","DEDICATE",
 "DELAWARE","DELIVERY","DELIGHT","DEMOCRATIC","DENSITY",
 "DEPARTMENT","DEPOSIT","DESERT","DESIGN","DESIRE",
 "DETAILS","DETECTOR","DETERMINED","DEVELOPING","DEVICE",
@@ -173,7 +262,7 @@ const WORDS = [
 "ELEMENT","EMOTION","EMPIRE","EMPLOYEE","ENFORCE","ENJOYED","ENOUGH",
 "ENSURE","ENTIRE","EQUATOR","ERASED","EVIDENT","EVERYTHING","EXAMPLE","EXCITED","EXCLUDE",
 "EXPECT","EXPERIENCE","EXPERT","EXPLAIN","EXPLORE","EXTEND","EXTREME","FACTORY",
-"FAILURE","FASHION","FEATURE","FEELING","FELLOW","FEMALE","FICTION","FIGURE",
+"FAILURE","FASHION","FEATURE","FEBRUARY","FEELING","FELLOW","FEMALE","FICTION","FIGURE",
 "FINALLY","FINANCE","FINGER","FLORIDA","FOLLOWING","FOREIGN","FOREST","FORTUNE","FORWARD",
 "FOUNDATION","FREEDOM","FREQUENT","FRIENDS","FUNCTION","GALLERY","GARDENS","GENERAL",
 "GENETIC","GENUINE","GEORGIA","GOVERNMENT","GRADUAL","GRANTED",
@@ -181,7 +270,9 @@ const WORDS = [
 "HONESTY","HORIZON","HOSPITAL","HOUSING","HUMANITY","HUNTERS","IMAGINE","IMPACT","IMPOSED",
 "IMPULSE","IMPROVE","INCLUDING","INCREASED","INDIVIDUAL",
 "INDUSTRY","INITIAL","INJURED","INQUIRE","INSIGHT","INSPIRE","INTENSE","INTEREST",
-"INTERNAL","INVENT","INVOLVE","JACKET","JEALOUS","JEWELRY","JOURNAL","JUNIOR","JUSTICE","KENTUCKY","KITCHEN",
+"INTERNAL","INVENT","INVOLVE",
+"JACKET","JANUARY","JEALOUS","JEWELRY","JOURNAL","JUNIOR","JUSTICE",
+"KENTUCKY","KITCHEN",
 "KNOWLEDGE","LANGUAGE","LAUGHTER","LEARNER","LECTURE","LIBRARY","LIGHTLY",
 "LIMITED","LOOKING","LOUISIANA",
 "MACHINE","MAGAZINE","MAGNETISM","MAJORITY","MANAGEMENT","MARKETS","MARYLAND","MATERIAL",
@@ -189,10 +280,10 @@ const WORDS = [
 "MIDDLE","MIDNIGHT","MIGRATION","MINNESOTA","MIRACLE","MISLEADING","MISTAKE","MODERATELY",
 "MOMENT","MONITOR","MORNING","MOTION","MOTIVATED","MUSEUMS",
 "NARRATE","NASHVILLE","NATIVE","NATURAL","NEBRASKA",
-"NEITHER","NETWORK","NOTHING","NOTICE","NUMBER",
-"OBJECTS","OBLIGATED","OBSERVING","OBTAINING","OCCASIONAL","OCCUPYING","OFFICER",
+"NEITHER","NETWORK","NOTHING","NOTICE","NOVEMBER","NUMBER",
+"OBJECTS","OBLIGATED","OBSERVING","OBTAINING","OCCASIONAL","OCCUPYING","OCTOBER","OFFICER",
 "OFFSHORE","OPENING",
-"OPERATING","OPINION","OPTIMIZED","OPTIONS","ORGANIC","ORIGINALS","OUTREACH","OUTCOME",
+"OPERATING","OPTIMIZED","OPTIONS","ORGANIC","ORIGINALS","OUTREACH","OUTCOME",
 "OUTSIDE","OWNERSHIP",
 "PACKAGE","PAINTED","PASSAGE","PATIENT","PATTERN","PAYMENT","PERCENT",
 "PERFECT","PERHAPS","PHOENIX","PICTURE","PLANNER","PLASTIC","PLAYERS","PLEASE","POINTED",
@@ -202,7 +293,7 @@ const WORDS = [
 "RAILWAY","REACHES","READING","REALITY","RECEIVE","RECOGNIZED","RECORDS",
 "REFLECT","REGULAR","REJECTED","RELATED","RELATIVELY","REMEMBER","REQUEST","RESEARCH","RESPECT",
 "RESULTS","RETURN","REVIEW","ROUTINE","SACRAMENTO","SATISFY","SCHEDULE","SCHOOL","SCIENCE",
-"SECTION","SECTOR","SEIZURE","SENDING","SERVICE","SETTING","SHARING","SHORTLY","SILENCE",
+"SECTION","SECTOR","SEIZURE","SENDING","SEPTEMBER","SERVICE","SETTING","SHARING","SHORTLY","SILENCE",
 "SIMILAR","SIMPLE","SITUATE","SITUATION","SKETCH","SLEEPER","SOLIDLY",
 "SOLUTION","SOMETIME","SPEAKER","SPECIAL","STATION","STATEMENT",
 "STRUCTURES","STUDENT","SUBJECT","SUGGEST","SUPPLY","SUPPORT",
@@ -230,6 +321,9 @@ let ended = false;
 const lettersArea = document.getElementById("lettersArea");
 const guessedBox   = document.getElementById("guessedBox");
 const endMessage   = document.getElementById("endMessage");
+// TEMP TEST
+const IS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+//const IS_TOUCH = true;
 
 /* Hangman SVG parts */
 const parts = [
@@ -241,18 +335,80 @@ const parts = [
     document.getElementById("p6")
 ];
 
+// SHOW KEYBOARD ON TOUCH DEVICES
+const kb = document.getElementById("keyboard");
+if (IS_TOUCH) {
+    kb.style.display = "block";
+}
+
+const menuIcon = document.getElementById("menuIcon");
+const menuDropdown = document.getElementById("menuDropdown");
+const usedWords = new Set();
+
+menuIcon.onclick = () => {
+    menuDropdown.style.display =
+        menuDropdown.style.display === "block" ? "none" : "block";
+};
+
+document.querySelectorAll(".menuItem").forEach(item => {
+    const color = item.getAttribute("data-color");
+    item.style.color = color;
+    item.onclick = () => {
+        const color = item.getAttribute("data-color");
+        document.body.style.setProperty('--main-color', color);
+        menuDropdown.style.display = "none";
+    };
+});
+
+// BUILD KEYS
+const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+[letters.slice(0,13), letters.slice(13)].forEach(row => {
+    const rowDiv = document.createElement("div");
+
+    row.forEach(letter => {
+        const k = document.createElement("div");
+        k.textContent = letter;
+        k.className = "key";
+
+        k.onclick = () => {
+            document.dispatchEvent(new KeyboardEvent("keydown", { key: letter }));
+        };
+
+        rowDiv.appendChild(k);
+    });
+
+    kb.appendChild(rowDiv);
+});
+
 /* Start game */
 function newGame() {
-    secret = WORDS[Math.floor(Math.random() * WORDS.length)];
+    secret = getRandomWord();
     revealed = Array(secret.length).fill(false);
     guessed.clear();
+    document.getElementById("newGameBtn").style.display = "none";
     wrong = 0;
     ended = false;
     endMessage.textContent = "";
+    document.querySelectorAll(".key").forEach(k => k.classList.remove("used"));
     parts.forEach(p => p.setAttribute("visibility", "hidden"));
     /* FOLLOWING used to count current words in WORDS */
     /* endMessage.textContent = WORDS.length; */
     render();
+}
+
+function getRandomWord() {
+     if (usedWords.size >= 200) {
+        usedWords.clear();
+    }
+
+    let word;
+    do {
+        word = WORDS[Math.floor(Math.random() * WORDS.length)];
+    } while (usedWords.has(word));
+    usedWords.add(word);
+
+    return word;
 }
 
 /* Render letters and guessed box */
@@ -305,10 +461,24 @@ function checkEnd() {
     if (revealed.every(v => v)) {
         ended = true;
         endMessage.textContent = "YOU WIN! PRESS ENTER TO PLAY AGAIN.";
+        if (IS_TOUCH) {
+            document.getElementById("newGameBtn").style.display = "block";
+        }
     } else if (wrong >= 6) {
         ended = true;
         endMessage.textContent = `GAME OVER. THE WORD WAS ${secret}. PRESS ENTER TO PLAY AGAIN.`;
+        if (IS_TOUCH) {
+            document.getElementById("newGameBtn").style.display = "block";
+        }
     }
+}
+
+function markKey(letter) {
+    document.querySelectorAll(".key").forEach(k => {
+        if (k.textContent === letter) {
+            k.classList.add("used");
+        }
+    });
 }
 
 /* Keyboard input */
@@ -319,8 +489,11 @@ document.addEventListener("keydown", e => {
     }
     if (/^[a-zA-Z]$/.test(e.key)) {
         guess(e.key.toUpperCase());
+        markKey(letter);
     }
 });
+
+document.getElementById("newGameBtn").onclick = newGame;
 
 /* Start initial game */
 newGame();
