@@ -990,9 +990,11 @@ document.addEventListener("keydown", e => {
                 player.escaped=true;
     		minotaurActive = false;
                 if (levelIndex < SIZE_OPTIONS.length - 1) {
-                    statusEl.textContent = "You Escaped!"; 
+                    statusEl.textContent = "You Escaped!";
+                    resetBtn.textContent = "Next Level";
                 } else {
                     statusEl.textContent = "You Win!";
+                    resetBtn.textContent = "New Game";
                     victoryFadeStart = performance.now();
                     gameState = STATE_VICTORY;
                     if (!isMuted) playVictoryTune();
