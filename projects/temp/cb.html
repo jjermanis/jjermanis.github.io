@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Care Bear</title>
+    <style>
+        body {
+            background-color: #222;
+            color: #fff;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        h1 {
+            margin: 0 0 10px 0;
+            font-size: 24px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        #game-container {
+            position: relative;
+            width: 640px;
+            height: 384px;
+            background-color: #90EE90; /* Light Green */
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+        }
+
+        #care-bear {
+            position: absolute;
+            width: 32px;
+            height: auto;
+            /* Ensures sharp pixel rendering when resized by the browser */
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            z-index: 10;
+        }
+
+        .treasure {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background-color: #FF69B4; /* Pink */
+            border-radius: 2px;
+            z-index: 5;
+        }
+
+        .trap {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background-color: #808080; /* Gray */
+            border-radius: 2px;
+            z-index: 5;
+        }
+
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 640px;
+            height: 384px;
+            background-color: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+            display: none;
+        }
+
+        #message {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 18px;
+            font-weight: bold;
+            background-color: #fff;
+            color: #000;
+            border: none;
+            cursor: pointer;
+            text-transform: uppercase;
+            box-shadow: 4px 4px 0px #555;
+        }
+
+        button:active {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0px #555;
+        }
+
+        #score-board {
+            margin-top: 10px;
+            font-size: 18px;
+        }
+
+  /* License MIT used in this file */
+  #license {
+      position: fixed;
+      bottom: 5px;
+      right: 10px;
+      font-size: 10px;
+      opacity: 0.5;
+  }
+  #license a {
+      color: inherit;
+      text-decoration: none;
+  }
+  #license a:hover {
+      text-decoration: underline;
+  }  
+  /* License */
+
+    </style>
+</head>
+<body>
+
+    <h1>Care Bear</h1>
+    
+    <div id="game-container">
+        <img id="care-bear" src="CareBear v7.png" alt="Care Bear">
+        <div id="items-layer"></div>
+        <div id="overlay">
+            <div id="message">Game Over</div>
+            <button onclick="resetGame()">Play Again</button>
+        </div>
+    </div>
+
+    <div id="score-board">Treasures Remaining: <span id="count">20</span></div>
+
+    <script>
+        const container = document.getElementById('game-container');
+        const bear = document.getElementById('care-bear');
+        const itemsLayer = document.getElementById('items-layer');
+        const overlay = document.getElementById('overlay');
+        const message = document.getElementById('message');
+        const countDisplay = document.getElementById('count');
+
+        // Game Configuration & State
+        const GAME_WIDTH = 640;
+        const GAME_HEIGHT = 384;
+        const BEAR_SPEED = 4; // Pixels per frame
+        
+        let bearX = 0;
+        let bearY = 0;
+        let bearWidth = 32;
+        let bearHeight = 0; // Calculated dynamically once image loads
+
+        let treasures = [];
+        let traps = [];
+        let keysPressed = {};
+        let gameOver = false;
+
+        // Tracks used grid spots to guarantee elements do not overlap
+        let occupiedGridPositions = new Set();
+
+        // Handle Keyboard input
+        window.addEventListener('keydown', (e) => {
+            if (!gameOver) {
+                keysPressed[e.key] = true;
+            } else if (e.key === 'Enter') {
+                resetGame();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            keysPressed[e.key] = false;
+        });
+
+        // Initialize Bear positioning once dimensions are known
+        bear.onload = function() {
+            bearHeight = bear.offsetHeight;
+            initGame();
+        };
+
+        // Fallback initialization if image takes too long or is cached
+        if (bear.complete) {
+            bearHeight = bear.offsetHeight;
+            initGame();
+        }
+
+        function initGame() {
+            gameOver = false;
+            overlay.style.display = 'none';
+            itemsLayer.innerHTML = '';
+            treasures = [];
+            traps = [];
+            occupiedGridPositions.clear();
+            keysPressed = {};
+
+            // 1. Position Care Bear at lower-edge center
+            bearX = (GAME_WIDTH / 2) - (bearWidth / 2);
+            bearY = GAME_HEIGHT - bearHeight;
+            updateBearPosition();
+
+            // 2. Generate 20 Treasures
+            while (treasures.length < 20) {
+                let pos = getRandomGridPosition();
+                if (!pos) break; // Safety break
+                
+                treasures.push(pos);
+                createDOMElement(pos.screenX, pos.screenY, 'treasure');
+            }
+
+            // 3. Generate 10 Traps
+            while (traps.length < 10) {
+                let pos = getRandomGridPosition();
+                if (!pos) break;
+
+                traps.push(pos);
+                createDOMElement(pos.screenX, pos.screenY, 'trap');
+            }
+
+            updateScoreboard();
+            
+            // Start Loop
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Calculates grid placements ensuring NO items touch each other (includes a 1-tile buffer)
+        function getRandomGridPosition() {
+            let maxAttempts = 2000; 
+            while (maxAttempts > 0) {
+                let gridX = Math.floor(Math.random() * 38) + 1;
+                let gridY = Math.floor(Math.random() * 19) + 1;
+                
+                // Check if this spot OR any of its 8 neighbors are already occupied
+                let spaceIsTouching = false;
+                
+                for (let dx = -1; dx <= 1; dx++) {
+                    for (let dy = -1; dy <= 1; dy++) {
+                        let checkX = gridX + dx;
+                        let checkY = gridY + dy;
+                        if (occupiedGridPositions.has(`${checkX},${checkY}`)) {
+                            spaceIsTouching = true;
+                            break;
+                        }
+                    }
+                    if (spaceIsTouching) break;
+                }
+
+                // Only accept the position if it is completely isolated
+                if (!spaceIsTouching) {
+                    let key = `${gridX},${gridY}`;
+                    occupiedGridPositions.add(key);
+                    return {
+                        screenX: gridX * 16,
+                        screenY: gridY * 16,
+                        gridKey: key
+                    };
+                }
+                maxAttempts--;
+            }
+            return null; 
+        }
+
+        function createDOMElement(x, y, className) {
+            const el = document.createElement('div');
+            el.className = className;
+            el.style.left = x + 'px';
+            el.style.top = y + 'px';
+            // Store coordinates directly on DOM element for fast collision checks
+            el.dataset.x = x;
+            el.dataset.y = y;
+            itemsLayer.appendChild(el);
+        }
+
+        function updateBearPosition() {
+            bear.style.left = bearX + 'px';
+            bear.style.top = bearY + 'px';
+        }
+
+        function updateScoreboard() {
+            countDisplay.innerText = treasures.length;
+        }
+
+        // Main Execution Engine
+        function gameLoop() {
+            if (gameOver) return;
+
+            // Handle Character Movement
+            if (keysPressed['ArrowUp'] || keysPressed['Up']) bearY -= BEAR_SPEED;
+            if (keysPressed['ArrowDown'] || keysPressed['Down']) bearY += BEAR_SPEED;
+            if (keysPressed['ArrowLeft'] || keysPressed['Left']) bearX -= BEAR_SPEED;
+            if (keysPressed['ArrowRight'] || keysPressed['Right']) bearX += BEAR_SPEED;
+
+            // Boundary Constraints (Clamping)
+            if (bearX < 0) bearX = 0;
+            if (bearX > GAME_WIDTH - bearWidth) bearX = GAME_WIDTH - bearWidth;
+            if (bearY < 0) bearY = 0;
+            if (bearY > GAME_HEIGHT - bearHeight) bearY = GAME_HEIGHT - bearHeight;
+
+            updateBearPosition();
+            checkCollisions();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Box collision system
+        function checkCollisions() {
+            // 1. Trap Check
+            const trapElements = document.getElementsByClassName('trap');
+            for (let i = 0; i < trapElements.length; i++) {
+                let tx = parseInt(trapElements[i].dataset.x);
+                let ty = parseInt(trapElements[i].dataset.y);
+
+                if (isColliding(bearX, bearY, bearWidth, bearHeight, tx, ty, 16, 16)) {
+                    endGame(false);
+                    return;
+                }
+            }
+
+            // 2. Treasure Check
+            const treasureElements = document.getElementsByClassName('treasure');
+            for (let i = treasureElements.length - 1; i >= 0; i--) {
+                let tx = parseInt(treasureElements[i].dataset.x);
+                let ty = parseInt(treasureElements[i].dataset.y);
+
+                if (isColliding(bearX, bearY, bearWidth, bearHeight, tx, ty, 16, 16)) {
+                    // Remove coordinate data trace from tracking array
+                    treasures = treasures.filter(t => t.screenX !== tx || t.screenY !== ty);
+                    treasureElements[i].remove();
+                    updateScoreboard();
+
+                    if (treasures.length === 0) {
+                        endGame(true);
+                        return;
+                    }
+                }
+            }
+        }
+
+        function isColliding(x1, y1, w1, h1, x2, y2, w2, h2) {
+            return x1 < x2 + w2 &&
+                   x1 + w1 > x2 &&
+                   y1 < y2 + h2 &&
+                   y1 + h1 > y2;
+        }
+
+        function endGame(isWin) {
+            gameOver = true;
+            if (isWin) {
+                message.innerText = "You Win!";
+                message.style.color = "#FF69B4"; // Pink victory
+            } else {
+                message.innerText = "Game Over";
+                message.style.color = "#FF3333"; // Red defeat
+            }
+            overlay.style.display = 'flex';
+        }
+
+        function resetGame() {
+            initGame();
+        }
+    </script>
+<div id="license">
+    <a href="../../LICENSE.txt">MIT License</a>
+</div>
+
+</body>
+</html>
