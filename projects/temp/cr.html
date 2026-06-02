@@ -77,6 +77,7 @@
 }
   #footer {
     width:640px;
+    cursor: pointer;
     text-align:center;
     color:#888;
     font-size:16px;
@@ -735,6 +736,13 @@ function setupTouchButtons() {
   holdKey('ArrowDown', document.getElementById('btn-dn-r'));
 }
 setupTouchButtons();
+
+document.getElementById('footer').addEventListener('click', () => {
+  if (state === 'title' || state === 'gameover') {
+    initAudio();
+    startGame();
+  }
+});
 
 function snap(v) { return Math.round(v); }
 
