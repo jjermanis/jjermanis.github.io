@@ -70,7 +70,13 @@
   justify-content: center;
   cursor: pointer;
   user-select: none;
+  transition: background 0.3s, border-color 0.3s, color 0.3s;
   -webkit-tap-highlight-color: transparent;
+}
+.touch-btn.dimmed {
+  background: rgba(60,48,16,0.15);
+  border-color: #3c3010;
+  color: #3c3010;
 }
 .touch-btn:active {
   background: rgba(240,192,64,0.35);
@@ -596,12 +602,15 @@ let state='title', laps=0, score=0, flashTimer=0;
 let hiScore = parseInt(localStorage.getItem('crossroads_hi') || '0', 10);
 document.getElementById('hiDisplay').textContent = 'HIGH:'+hiScore;
 let warnActive=false;
-document.getElementById('footer').textContent = 'PRESS SPACE TO START';
+document.getElementById('footer').style.cursor = 'pointer';
+document.getElementById('footer').textContent = 'CLICK HERE OR PRESS SPACE TO START';
 let frozen=false, freezeEnd=0;
 
 function startGame() {
   laps=0; score=0; gameLevel=1; frameCount=0; frozen=false; warnActive=false;
+  document.querySelectorAll('.touch-btn').forEach(b => b.classList.remove('dimmed'));
   document.getElementById('footer').textContent='';
+  document.getElementById('footer').style.cursor = 'default';
   resetPlayer();
   makeLaneObjs();
   state='playing';
@@ -634,16 +643,24 @@ function endGame() {
     localStorage.setItem('crossroads_hi', hiScore);
     document.getElementById('hiDisplay').textContent = 'HIGH: '+hiScore;
   }
+  document.querySelectorAll('.touch-btn').forEach(b => b.classList.add('dimmed'));
   state='gameover';
   beep(440,0.1); beep(330,0.1); beep(220,0.3,'sawtooth',0.18);
-  document.getElementById('footer').textContent='PRESS SPACE TO PLAY AGAIN';
+  document.getElementById('footer').style.cursor = 'pointer';
+  document.getElementById('footer').textContent='CLICK HERE OR PRESS SPACE TO START';
 }
 
 // ── AUDIO ────────────────────────────────────────────────────────────
 let audioCtx=null;
 function initAudio() {
-  if (!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
 }
+
 function beep(freq,dur,type='square',vol=0.12) {
   if (!audioCtx) return;
   try {
