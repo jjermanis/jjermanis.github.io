@@ -5,6 +5,7 @@
 <title>CROSSROADS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><g transform='translate(10,4)'><rect x='3' y='0' width='6' height='6' fill='%231a1a1a'/><rect x='1' y='6' width='10' height='12' fill='%2310d8f8'/><rect x='1' y='9' width='10' height='5' fill='%230898b8'/><rect x='3' y='18' width='6' height='6' fill='%231a1a1a'/><rect x='5' y='1' width='2' height='2' fill='%23ffff99'/></g></svg>">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body {
@@ -20,7 +21,7 @@
   #hud {
     width:640px;
     display:flex;
-    justify-content:center;
+    justify-content:space-between;
     align-items:center;
     color:#f0c040;
     font-size:20px;
@@ -28,13 +29,62 @@
     text-transform:uppercase;
     padding:6px 8px;
   }
+  #hud span:first-child, #hiDisplay {
+    width: 160px;
+  }
+  #hiDisplay {
+    text-align: right;
+    font-size:18px;
+  }
   canvas {
     display:block;
     image-rendering:pixelated;
     image-rendering:crisp-edges;
   }
+#game-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.touch-btns {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .touch-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    margin-top: -26px;
+  }
+}
+.touch-btn {
+  width: 60px;
+  height: 60px;
+  background: rgba(240,192,64,0.15);
+  border: 2px solid #f0c040;
+  border-radius: 8px;
+  color: #f0c040;
+  font-size: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.3s, border-color 0.3s, color 0.3s;
+  -webkit-tap-highlight-color: transparent;
+}
+.touch-btn.dimmed {
+  background: rgba(60,48,16,0.15);
+  border-color: #3c3010;
+  color: #3c3010;
+}
+.touch-btn:active {
+  background: rgba(240,192,64,0.35);
+}
   #footer {
     width:640px;
+    cursor: pointer;
     text-align:center;
     color:#888;
     font-size:16px;
@@ -43,6 +93,14 @@
     padding:8px 6px;
     height:24px;
   }
+#statusRow {
+  width: 640px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
   /* License MIT used in this file */
   #license {
       position: fixed;
@@ -63,11 +121,26 @@
 </head>
 <body>
 <div id="hud">
-  <span>CROSSROADS</span>
+  <span></span>
+  <span id="title-text">CROSSROADS</span>
+  <span id="hiDisplay"></span>
 </div>
-<canvas id="c" width="640" height="480"></canvas>
-<div id="footer">&nbsp;</div>
-
+<div id="game-row">
+  <div class="touch-btns">
+    <div class="touch-btn dimmed" id="btn-up-l">▲</div>
+    <div class="touch-btn dimmed" id="btn-dn-l">▼</div>
+  </div>
+  <canvas id="c" width="640" height="480"></canvas>
+  <div class="touch-btns">
+    <div class="touch-btn dimmed" id="btn-up-r">▲</div>
+    <div class="touch-btn dimmed" id="btn-dn-r">▼</div>
+  </div>
+</div>
+<div id="statusRow">
+  <span id="muteBtn" title="Mute" style="cursor:pointer; font-size:24px; user-select:none;">🔊</span>
+  <div id="footer">&nbsp;</div>
+  <span style="width:30px;"></span>
+</div>
 <script>
 // ═══════════════════════════════════════════════════════════════════
 //  CROSSROADS — Atari 2600 style, 30fps, 9 levels, figure-8 laps
@@ -126,6 +199,8 @@ const RIGHT_CX = CX + 32;   // 352
 // Y threshold: "clear of traffic" — just outside the road blocks
 const CLEAR_TOP_Y = SAFE_TOP_Y + SAFE_TOP_H / 2;        // 20 — well inside top safe zone
 const CLEAR_BOT_Y = SAFE_BOT_Y + SAFE_BOT_H / 2;        // 448 — well inside bottom safe zone
+
+let isMuted = false;
 
 // ── PER-LANE PER-LEVEL CONFIG ────────────────────────────────────────
 // speed      : pixels per frame (30fps)
@@ -483,7 +558,6 @@ function startAutoTransfer() {
   // Count the lap when transfer sequence begins
   laps++;
   score += gameLevel;
-  if (laps > hiScore) hiScore = laps;
   beep(880,0.07); beep(1100,0.07); beep(1320,0.10); beep(1760,0.14);
 }
 
@@ -538,14 +612,19 @@ function updateLevel() {
 }
 
 // ── GAME STATE ───────────────────────────────────────────────────────
-let state='title', laps=0, hiScore=0, score=0, flashTimer=0;
+let state='title', laps=0, score=0, flashTimer=0;
+let hiScore = parseInt(localStorage.getItem('crossroads_hi') || '0', 10);
+document.getElementById('hiDisplay').textContent = 'HIGH:'+hiScore;
 let warnActive=false;
-document.getElementById('footer').textContent = 'PRESS SPACE TO START';
+document.getElementById('footer').style.cursor = 'pointer';
+document.getElementById('footer').textContent = 'CLICK HERE OR PRESS SPACE TO START';
 let frozen=false, freezeEnd=0;
 
 function startGame() {
   laps=0; score=0; gameLevel=1; frameCount=0; frozen=false; warnActive=false;
+  document.querySelectorAll('.touch-btn').forEach(b => b.classList.remove('dimmed'));
   document.getElementById('footer').textContent='';
+  document.getElementById('footer').style.cursor = 'default';
   resetPlayer();
   makeLaneObjs();
   state='playing';
@@ -573,18 +652,31 @@ function resetPlayerToPathStart() {
 }
 
 function endGame() {
+  if (score > hiScore) {
+    hiScore = score;
+    localStorage.setItem('crossroads_hi', hiScore);
+    document.getElementById('hiDisplay').textContent = 'HIGH: '+hiScore;
+  }
+  document.querySelectorAll('.touch-btn').forEach(b => b.classList.add('dimmed'));
   state='gameover';
   beep(440,0.1); beep(330,0.1); beep(220,0.3,'sawtooth',0.18);
-  document.getElementById('footer').textContent='PRESS SPACE TO PLAY AGAIN';
+  document.getElementById('footer').style.cursor = 'pointer';
+  document.getElementById('footer').textContent='CLICK HERE OR PRESS SPACE TO START';
 }
 
 // ── AUDIO ────────────────────────────────────────────────────────────
 let audioCtx=null;
 function initAudio() {
-  if (!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
 }
+
 function beep(freq,dur,type='square',vol=0.12) {
-  if (!audioCtx) return;
+  if (!audioCtx || isMuted) return;
   try {
     const o=audioCtx.createOscillator(), g=audioCtx.createGain();
     o.connect(g); g.connect(audioCtx.destination);
@@ -596,7 +688,7 @@ function beep(freq,dur,type='square',vol=0.12) {
 }
 
 function carPass(vol) {
-  if (!audioCtx) return;
+  if (!audioCtx || isMuted) return;
   try {
     const o=audioCtx.createOscillator(), g=audioCtx.createGain();
     o.connect(g); g.connect(audioCtx.destination);
@@ -654,6 +746,39 @@ document.addEventListener('keydown', e=>{
   if (['ArrowUp','ArrowDown'].includes(e.key)) e.preventDefault();
 });
 document.addEventListener('keyup', e=>{ keys[e.key]=false; });
+
+function setupTouchButtons() {
+  function holdKey(key, el) {
+    el.addEventListener('touchstart', e=>{
+      e.preventDefault();
+      initAudio();
+      keys[key]=true;
+    }, {passive:false});
+    el.addEventListener('touchend',   e=>{ e.preventDefault(); keys[key]=false; }, {passive:false});
+    el.addEventListener('touchcancel',e=>{ e.preventDefault(); keys[key]=false; }, {passive:false});
+    // Mouse support for non-touch tablets / desktop testing
+    el.addEventListener('mousedown', e=>{ initAudio(); keys[key]=true;  });
+    el.addEventListener('mouseup',   e=>{ keys[key]=false; });
+    el.addEventListener('mouseleave',e=>{ keys[key]=false; });
+  }
+  holdKey('ArrowUp',   document.getElementById('btn-up-l'));
+  holdKey('ArrowDown', document.getElementById('btn-dn-l'));
+  holdKey('ArrowUp',   document.getElementById('btn-up-r'));
+  holdKey('ArrowDown', document.getElementById('btn-dn-r'));
+}
+setupTouchButtons();
+
+document.getElementById('muteBtn').addEventListener('click', () => {
+  isMuted = !isMuted;
+  document.getElementById('muteBtn').textContent = isMuted ? '🔇' : '🔊';
+});
+
+document.getElementById('footer').addEventListener('click', () => {
+  if (state === 'title' || state === 'gameover') {
+    initAudio();
+    startGame();
+  }
+});
 
 function snap(v) { return Math.round(v); }
 
