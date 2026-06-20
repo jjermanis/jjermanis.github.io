@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Solitaire</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='1em' font-size='90' text-anchor='middle' x='50%'>♠</text></svg>">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; }
 
@@ -14,7 +15,7 @@
     align-items: center;
     min-height: 100vh;
     font-family: Georgia, serif;
-    overflow: hidden;
+    overflow: auto;
   }
 
   #game-wrapper {
@@ -284,8 +285,45 @@
     font-size: 16px;
   }
 
+  #confirm-overlay {
+    display: none;
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.55);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+  }
+
+  #confirm-overlay.show { display: flex; }
+
+  #confirm-box {
+    background: #f5f0e8;
+    border-radius: 10px;
+    padding: 28px 32px;
+    text-align: center;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+    border: 2px solid #c8b860;
+  }
+
+  #confirm-box h2 {
+    font-size: 20px;
+    color: #2d2d2d;
+    margin-bottom: 10px;
+    font-family: Georgia, serif;
+  }
+
+  #confirm-box p {
+    font-size: 14px;
+    color: #555;
+    margin-bottom: 22px;
+    font-family: Georgia, serif;
+  }
+
   /* ── NEW GAME BUTTON ── */
-  #btn-new {
+#btn-new {
     position: absolute;
     bottom: 10px;
     left: 50%;
@@ -306,6 +344,31 @@
     color: #fff;
   }
 
+  #btn-undo {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background: rgba(0,0,0,0.35);
+    color: rgba(255,255,255,0.75);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 5px;
+    padding: 5px 18px;
+    font-size: 12px;
+    font-family: Georgia, serif;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  #btn-undo:hover {
+    background: rgba(0,0,0,0.55);
+    color: #fff;
+  }
+
+  #btn-undo:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+
   /* ── WIN ANIMATION ── */
   .bounce-card {
     position: absolute;
@@ -318,15 +381,17 @@
     align-items: center;
     justify-content: center;
     font-size: 26px;
-    z-index: 2500;
+    z-index: 4000;
     pointer-events: none;
     animation: bounce-fall linear forwards;
   }
 
   @keyframes bounce-fall {
-    0%   { transform: translateY(0); }
-    100% { transform: translateY(700px); }
+    0%   { transform: translateY(0); opacity: 1; }
+    80%  { opacity: 1; }
+    100% { transform: translateY(750px); opacity: 0; }
   }
+
 </style>
 </head>
 <body>
@@ -349,6 +414,17 @@
       <button class="btn btn-yes" id="btn-new-game">New Game</button>
     </div>
   </div>
+  <div id="confirm-overlay">
+    <div id="confirm-box">
+      <h2>New Game?</h2>
+      <p>Your current game is still in progress.<br>Are you sure you want to start over?</p>
+      <div class="dialog-buttons">
+        <button class="btn btn-yes" id="btn-confirm-yes">Yes</button>
+        <button class="btn btn-no" id="btn-confirm-no">No</button>
+      </div>
+    </div>
+  </div>
+  <button id="btn-undo">Undo</button>
   <button id="btn-new">New Game</button>
 </div>
 
@@ -382,6 +458,34 @@ const STOCK_Y = 10;
 // ═══════════════════════════════════════════════════════
 let stock = [], waste = [], foundations = [[],[],[],[]], tableau = [[],[],[],[],[],[],[]];
 let autoCompletePrompted = false;
+let undoStack = [];
+
+function saveState() {
+  undoStack.push({
+    stock: stock.map(c => ({ ...c })),
+    waste: waste.map(c => ({ ...c })),
+    foundations: foundations.map(f => f.map(c => ({ ...c }))),
+    tableau: tableau.map(col => col.map(c => ({ ...c }))),
+    autoCompletePrompted
+  });
+  updateUndoButton();
+}
+
+function updateUndoButton() {
+  document.getElementById('btn-undo').disabled = undoStack.length === 0;
+}
+
+function undo() {
+  if (undoStack.length === 0) return;
+  const state = undoStack.pop();
+  stock       = state.stock;
+  waste       = state.waste;
+  foundations = state.foundations;
+  tableau     = state.tableau;
+  autoCompletePrompted = state.autoCompletePrompted;
+  updateUndoButton();
+  render();
+}
 
 // ═══════════════════════════════════════════════════════
 //  DOM
@@ -421,9 +525,11 @@ function newGame() {
   foundations = [[],[],[],[]];
   tableau = [[],[],[],[],[],[],[]];
   autoCompletePrompted = false;
+  undoStack = [];
   dialogOverlay.classList.remove('show');
   winScreen.classList.remove('show');
   clearBounceCards();
+  updateUndoButton();
 
   const deck = shuffle(makeDeck());
   let idx = 0;
@@ -552,15 +658,15 @@ function startBounce() {
     el.style.color = RED_SUITS.includes(suit) ? '#c00' : '#111';
     el.style.fontSize = '28px';
     el.textContent = suit;
-    el.style.animationDuration = (1.2 + Math.random() * 1.2) + 's';
-    canvas.appendChild(el);
+    el.style.animationDuration = (1.4 + Math.random() * 1.2) + 's';
+    document.getElementById('game-wrapper').appendChild(el);
     setTimeout(() => el.remove(), 2500);
   }, 200);
 }
 
 function clearBounceCards() {
   if (bounceInterval) { clearInterval(bounceInterval); bounceInterval = null; }
-  canvas.querySelectorAll('.bounce-card').forEach(e => e.remove());
+  document.getElementById('game-wrapper').querySelectorAll('.bounce-card').forEach(e => e.remove());
 }
 
 // ═══════════════════════════════════════════════════════
@@ -692,6 +798,7 @@ function makeCardEl(card) {
 // ═══════════════════════════════════════════════════════
 function drawCard() {
   if (stock.length === 0) return;
+    saveState();
   const card = stock.pop();
   card.faceUp = true;
   waste.push(card);
@@ -700,6 +807,7 @@ function drawCard() {
 
 function redeal() {
   if (stock.length > 0) return;
+    saveState();
   while (waste.length > 0) {
     const card = waste.pop();
     card.faceUp = false;
@@ -711,6 +819,19 @@ function redeal() {
 // ═══════════════════════════════════════════════════════
 //  CLICK-TO-MOVE
 // ═══════════════════════════════════════════════════════
+function getSourcePosition(location, col, row) {
+  if (location === 'waste') {
+    return { x: WASTE_X, y: STOCK_Y };
+  }
+  // tableau — compute Y by walking down to the given row
+  const colArr = tableau[col];
+  let y = TABLEAU_Y;
+  for (let r = 0; r < row; r++) {
+    y += colArr[r].faceUp ? COL_Y_FACE : COL_Y_OFFSET;
+  }
+  return { x: colX(col), y };
+}
+
 function getDestPosition(destLocation, destIdx) {
   if (destLocation === 'foundation') {
     return { x: foundX(destIdx), y: FOUND_Y };
@@ -724,80 +845,84 @@ function getDestPosition(destLocation, destIdx) {
   return { x: colX(destIdx), y };
 }
 
-function animateCardMove(card, fromEl, destLocation, destIdx, onComplete) {
-  const canvasRect = canvas.getBoundingClientRect();
-  const fromRect = fromEl.getBoundingClientRect();
-  const startX = fromRect.left - canvasRect.left;
-  const startY = fromRect.top - canvasRect.top;
+function animateCardMove(cards, start, destLocation, destIdx, onComplete) {
+  const startX = start.x;
+  const startY = start.y;
   const dest = getDestPosition(destLocation, destIdx);
 
-  // Build a floating clone
-  const clone = makeCardEl(card);
-  clone.style.position = 'absolute';
-  clone.style.left = startX + 'px';
-  clone.style.top  = startY + 'px';
-  clone.style.zIndex = 1000;
-  clone.style.pointerEvents = 'none';
-  clone.style.boxShadow = '3px 6px 14px rgba(0,0,0,0.6)';
-  canvas.appendChild(clone);
-
-  // Hide the original
-  fromEl.style.visibility = 'hidden';
+  // Build a floating clone for each card in the stack
+  const clones = cards.map((c, i) => {
+    const clone = makeCardEl(c);
+    clone.style.position = 'absolute';
+    clone.style.left = startX + 'px';
+    clone.style.top  = (startY + i * COL_Y_FACE) + 'px';
+    clone.style.zIndex = 1000 + i;
+    clone.style.pointerEvents = 'none';
+    clone.style.boxShadow = '3px 6px 14px rgba(0,0,0,0.6)';
+    canvas.appendChild(clone);
+    // Hide the original
+    const original = canvas.querySelector(`[data-card-id="${CSS.escape(c.id)}"]`);
+    if (original) original.style.visibility = 'hidden';
+    return clone;
+  });
 
   const dx = dest.x - startX;
   const dy = dest.y - startY;
   const dist = Math.sqrt(dx * dx + dy * dy);
-  const speed = 800; // pixels per second
-  const duration = Math.max(80, dist / speed * 1000); // ms, minimum 80ms
-
+  const speed = 800;
+  const duration = Math.max(80, dist / speed * 1000);
   const startTime = performance.now();
 
   function step(now) {
     const t = Math.min((now - startTime) / duration, 1);
-    const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; // ease in-out
-    clone.style.left = (startX + dx * ease) + 'px';
-    clone.style.top  = (startY + dy * ease) + 'px';
+    const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    clones.forEach((clone, i) => {
+      clone.style.left = (startX + dx * ease) + 'px';
+      clone.style.top  = (startY + i * COL_Y_FACE + dy * ease) + 'px';
+    });
     if (t < 1) {
       requestAnimationFrame(step);
     } else {
-      clone.remove();
+      clones.forEach(c => c.remove());
       onComplete();
     }
   }
   requestAnimationFrame(step);
 }
 
-function clickMove(card, location, col) {
-  let srcArray, srcIdx;
+function clickMove(card, location, col, row) {
+  let srcArray, srcIdx, cards;
 
   if (location === 'waste') {
     if (waste.length === 0 || waste[waste.length - 1].id !== card.id) return;
     srcArray = waste; srcIdx = waste.length - 1;
+    cards = [card];
   } else if (location === 'tableau') {
     const colArr = tableau[col];
-    if (colArr[colArr.length - 1].id !== card.id) return;
-    srcArray = colArr; srcIdx = colArr.length - 1;
+    if (!card.faceUp) return;
+    srcIdx = row;
+    srcArray = colArr;
+    cards = colArr.slice(row); // card + everything below it
   } else return;
 
-  // Determine destination
-  const fi = foundationForCard(card);
-  const ti = fi < 0 ? tableauForCard(card) : -1;
+  // Only single cards can go to foundation
+  const fi = cards.length === 1 ? foundationForCard(cards[0]) : -1;
+  const ti = fi < 0 ? tableauForCard(cards[0]) : -1;
   if (fi < 0 && ti < 0) { shakeCard(card.id); return; }
 
   const destLocation = fi >= 0 ? 'foundation' : 'tableau';
   const destIdx = fi >= 0 ? fi : ti;
 
-  // Get the live element before touching state
-  const fromEl = canvas.querySelector(`[data-card-id="${CSS.escape(card.id)}"]`);
-  if (!fromEl) return;
-
-  animateCardMove(card, fromEl, destLocation, destIdx, () => {
-    // Update state
-    srcArray.splice(srcIdx, 1);
+   const start = getSourcePosition(location, col, row);
+  saveState();
+  animateCardMove(cards, start, destLocation, destIdx, () => {
+    // Remove cards from source
+    srcArray.splice(srcIdx);
     if (location === 'tableau' && tableau[col].length > 0)
       tableau[col][tableau[col].length - 1].faceUp = true;
-    if (destLocation === 'foundation') foundations[destIdx].push(card);
-    else tableau[destIdx].push(card);
+    // Add to destination
+    if (destLocation === 'foundation') foundations[destIdx].push(cards[0]);
+    else for (const c of cards) tableau[destIdx].push(c);
 
     render();
     if (!checkWin()) checkAutoComplete();
@@ -823,6 +948,10 @@ function getClientXY(e) {
   return { x: e.clientX, y: e.clientY };
 }
 
+function getZoom() {
+  return parseFloat(document.getElementById('game-wrapper').style.zoom) || 1;
+}
+
 function getCanvasRect() {
   return canvas.getBoundingClientRect();
 }
@@ -831,6 +960,7 @@ function startDrag(e, card, location, col, row, el) {
   e.preventDefault();
   const { x, y } = getClientXY(e);
   const rect = getCanvasRect();
+  const zoom = getZoom();
   const elRect = el.getBoundingClientRect();
 
   let cards = [], srcRow = row;
@@ -838,9 +968,8 @@ function startDrag(e, card, location, col, row, el) {
   if (location === 'waste') {
     cards = [waste[waste.length - 1]];
   } else if (location === 'tableau') {
-    // Can drag a stack of face-up cards
     cards = tableau[col].slice(row);
-    if (!cards[0].faceUp) return; // can't drag face-down
+    if (!cards[0].faceUp) return;
   } else if (location === 'foundation') {
     cards = [foundations[col][foundations[col].length - 1]];
   } else return;
@@ -864,8 +993,8 @@ function startDrag(e, card, location, col, row, el) {
     srcLocation: location,
     srcCol: col,
     srcRow: row,
-    offsetX: x - elRect.left,
-    offsetY: y - elRect.top,
+    offsetX: (x - elRect.left) / zoom,
+    offsetY: (y - elRect.top)  / zoom,
     startX: x,
     startY: y,
     hasMoved: false,
@@ -888,10 +1017,11 @@ function startDrag(e, card, location, col, row, el) {
 
 function moveDragEls(clientX, clientY, rect) {
   if (!drag) return;
+  const zoom = getZoom();
   if (!rect) rect = getCanvasRect();
   drag.els.forEach((el, i) => {
-    el.style.left = (clientX - rect.left - drag.offsetX) + 'px';
-    el.style.top  = (clientY - rect.top - drag.offsetY + i * COL_Y_FACE) + 'px';
+    el.style.left = ((clientX - rect.left) / zoom - drag.offsetX) + 'px';
+    el.style.top  = ((clientY - rect.top)  / zoom - drag.offsetY + i * COL_Y_FACE) + 'px';
   });
 }
 
@@ -899,8 +1029,9 @@ function endDrag(e) {
   if (!drag) return;
   const { x, y } = getClientXY(e);
   const rect = getCanvasRect();
-  const canvasX = x - rect.left;
-  const canvasY = y - rect.top;
+  const zoom = getZoom();
+  const canvasX = (x - rect.left) / zoom;
+  const canvasY = (y - rect.top)  / zoom;
 
   const moved = Math.abs(x - drag.startX) > 4 || Math.abs(y - drag.startY) > 4;
 
@@ -908,14 +1039,14 @@ function endDrag(e) {
   drag.els.forEach(el => el.remove());
 
   if (!moved) {
-    // Treat as click-move
     restoreVisibility();
     const card = drag.originCard;
     const loc = drag.srcLocation;
     const col = drag.srcCol;
+    const row = drag.srcRow;
     drag = null;
-    if (loc === 'foundation') return; // don't click-move from foundation
-    clickMove(card, loc, col);
+    if (loc === 'foundation') return;
+    clickMove(card, loc, col, row);
     return;
   }
 
@@ -984,6 +1115,7 @@ function hitTest(cx, cy, x, y, w, h) {
 }
 
 function moveCards(cards, srcLocation, srcCol, srcRow, destLocation, destIdx) {
+  saveState();
   // Remove from source
   if (srcLocation === 'waste') {
     waste.pop();
@@ -1081,12 +1213,41 @@ document.getElementById('btn-yes').addEventListener('click', doAutoComplete);
 document.getElementById('btn-no').addEventListener('click', () => {
   dialogOverlay.classList.remove('show');
 });
-document.getElementById('btn-new-game').addEventListener('click', newGame);
-document.getElementById('btn-new').addEventListener('click', newGame);
+document.getElementById('btn-undo').addEventListener('click', undo);
+const confirmOverlay = document.getElementById('confirm-overlay');
+
+function gameIsOver() {
+  return winScreen.classList.contains('show') ||
+         foundations.every(f => f.length === 13);
+}
+
+function requestNewGame() {
+  if (gameIsOver()) { newGame(); return; }
+  confirmOverlay.classList.add('show');
+}
+
+document.getElementById('btn-new-game').addEventListener('click', newGame); // win screen — no confirm needed
+document.getElementById('btn-new').addEventListener('click', requestNewGame);
+document.getElementById('btn-confirm-yes').addEventListener('click', () => {
+  confirmOverlay.classList.remove('show');
+  newGame();
+});
+document.getElementById('btn-confirm-no').addEventListener('click', () => {
+  confirmOverlay.classList.remove('show');
+});
 
 // ═══════════════════════════════════════════════════════
 //  START
 // ═══════════════════════════════════════════════════════
+function applyScale() {
+  const scaleX = window.innerWidth / 480;
+  const scaleY = window.innerHeight / 640;
+  const scale = Math.max(1.0, Math.min(scaleX, scaleY));
+  document.getElementById('game-wrapper').style.zoom = scale;
+}
+
+window.addEventListener('resize', applyScale);
+applyScale();
 newGame();
 </script>
 </body>
