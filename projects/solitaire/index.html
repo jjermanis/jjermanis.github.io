@@ -13,6 +13,16 @@
     --scale: 1;
     --font-rank: 18px;
     --font-suit: 39px;
+    --font-ui-sm: 12px;
+    --font-ui-md: 14px;
+    --font-ui-lg: 15px;
+    --font-ui-xl: 16px;
+    --font-ui-h2: 20px;
+    --font-ui-h1: 30px;
+    --font-ui-btn: 16px;
+    --font-stock: 28px;
+    --font-bounce: 26px;
+    --font-debug: 11px;
   }
 
   body {
@@ -170,7 +180,7 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    font-size: 28px;
+    font-size: var(--font-stock);
     color: rgba(255,255,255,0.5);
     transition: background 0.2s;
   }
@@ -207,14 +217,14 @@
   }
 
   #dialog-box h2 {
-    font-size: 20px;
+    font-size: var(--font-ui-h2);
     color: #2d2d2d;
     margin-bottom: 10px;
     font-family: Georgia, serif;
   }
 
   #dialog-box p {
-    font-size: 14px;
+    font-size: var(--font-ui-md);
     color: #555;
     margin-bottom: 22px;
     font-family: Georgia, serif;
@@ -230,7 +240,7 @@
     padding: 9px 28px;
     border: none;
     border-radius: 6px;
-    font-size: 15px;
+    font-size: var(--font-ui-lg);
     font-family: Georgia, serif;
     cursor: pointer;
     font-weight: bold;
@@ -274,7 +284,7 @@
   }
 
   #win-box h1 {
-    font-size: 30px;
+    font-size: var(--font-ui-h1);
     color: #2d6a2d;
     margin-bottom: 10px;
     font-family: Georgia, serif;
@@ -290,7 +300,7 @@
     background: #2d6a2d;
     color: #fff;
     padding: 11px 34px;
-    font-size: 16px;
+    font-size: var(--font-ui-btn);
   }
 
   #confirm-overlay {
@@ -317,14 +327,14 @@
   }
 
   #confirm-box h2 {
-    font-size: 20px;
+    font-size: var(--font-ui-h2);
     color: #2d2d2d;
     margin-bottom: 10px;
     font-family: Georgia, serif;
   }
 
   #confirm-box p {
-    font-size: 14px;
+    font-size: var(--font-ui-md);
     color: #555;
     margin-bottom: 22px;
     font-family: Georgia, serif;
@@ -341,7 +351,7 @@
     border: 1px solid rgba(255,255,255,0.25);
     border-radius: 5px;
     padding: 5px 18px;
-    font-size: 12px;
+    font-size: var(--font-ui-sm);
     font-family: Georgia, serif;
     cursor: pointer;
     transition: background 0.2s;
@@ -361,7 +371,7 @@
     border: 1px solid rgba(255,255,255,0.25);
     border-radius: 5px;
     padding: 5px 18px;
-    font-size: 12px;
+    font-size: var(--font-ui-sm);
     font-family: Georgia, serif;
     cursor: pointer;
     transition: background 0.2s;
@@ -377,6 +387,16 @@
     cursor: default;
   }
 
+  #debug-display {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    color: rgba(255,255,255,0.75);
+    font-size: var(--font-debug);
+    font-family: Georgia, serif;
+    pointer-events: none;
+  }
+
   /* ── WIN ANIMATION ── */
   .bounce-card {
     position: absolute;
@@ -388,7 +408,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 26px;
+    font-size: var(--font-bounce);
     z-index: 4000;
     pointer-events: none;
     animation: bounce-fall linear forwards;
@@ -434,6 +454,7 @@
   </div>
   <button id="btn-undo">Undo</button>
   <button id="btn-new">New Game</button>
+  <div id="debug-display"></div>
 </div>
 
 <script>
@@ -444,6 +465,7 @@ const CARD_W = 58, CARD_H = 82;
 const TABLEAU_Y = 140;
 const COL_Y_OFFSET = 18;   // face-down overlap
 const COL_Y_FACE = 22;     // face-up overlap
+const DEBUG = true;
 
 const SUITS = ['♠','♥','♦','♣'];
 const RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
@@ -481,6 +503,17 @@ function saveState() {
 
 function updateUndoButton() {
   document.getElementById('btn-undo').disabled = undoStack.length === 0;
+}
+
+function updateDebug() {
+  if (!DEBUG) return;
+  const tabCount  = tableau.reduce((sum, col) => sum + col.length, 0);
+  const foundCount = foundations.reduce((sum, f) => sum + f.length, 0);
+  const stockCount = stock.length;
+  const wasteCount = waste.length;
+  const total = tabCount + foundCount + stockCount + wasteCount;
+  document.getElementById('debug-display').textContent =
+    `${total} (${tabCount}+${foundCount}+${stockCount}+${wasteCount})`;
 }
 
 function undo() {
@@ -778,6 +811,7 @@ function render() {
   }
 
   attachEvents();
+  updateDebug();
 }
 
 function makeCardEl(card) {
@@ -793,9 +827,6 @@ function makeCardEl(card) {
             <span class="card-rank">${card.rank}</span>
           </div>
           <div class="card-suit-center ${color}">${card.suit}</div>
-          <div class="card-bottom-right ${color}">
-            <span class="card-rank">${card.rank}</span>
-          </div>
         </div>`;
     }
   return el;
@@ -1259,8 +1290,18 @@ function applyScale() {
   // Only explicitly scale fonts on Safari, where zoom doesn't scale them
   const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
   const fontScale = isSafari ? scale : 1;
-  document.documentElement.style.setProperty('--font-rank', (18 * fontScale) + 'px');
-  document.documentElement.style.setProperty('--font-suit', (39 * fontScale) + 'px');
+ document.documentElement.style.setProperty('--font-rank',   (18 * fontScale) + 'px');
+  document.documentElement.style.setProperty('--font-suit',   (39 * fontScale) + 'px');
+  document.documentElement.style.setProperty('--font-ui-sm',  (12 * fontScale) + 'px');
+  document.documentElement.style.setProperty('--font-ui-md',  (14 * fontScale) + 'px');
+  document.documentElement.style.setProperty('--font-ui-lg',  (15 * fontScale) + 'px');
+  document.documentElement.style.setProperty('--font-ui-xl',  (16 * fontScale) + 'px');
+  document.documentElement.style.setProperty('--font-ui-h2',  (20 * fontScale) + 'px');
+  document.documentElement.style.setProperty('--font-ui-h1',  (30 * fontScale) + 'px');
+  document.documentElement.style.setProperty('--font-ui-btn', (16 * fontScale) + 'px');
+  document.documentElement.style.setProperty('--font-stock',  (28 * fontScale) + 'px');
+  document.documentElement.style.setProperty('--font-bounce', (26 * fontScale) + 'px');
+  document.documentElement.style.setProperty('--font-debug',  (11 * fontScale) + 'px');
 }
 
 if (window.visualViewport) {
