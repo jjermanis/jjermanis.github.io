@@ -1,0 +1,1394 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Écoutez et répétez</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90' font-weight='bold' font-family='sans-serif' fill='%230055A5'>é</text></svg>">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f2f5;
+            margin: 0;
+            height: 100vh;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-top: 20px;
+        }
+
+        #game-container {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-top: 50px;
+            width: 450px;
+            min-height: 260px;
+        }
+
+        .row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 25px;
+            min-height: 60px;
+        }
+
+        .flag {
+            width: 60px;
+            height: 40px;
+            object-fit: cover;
+            border: 1px solid #ddd;
+            margin-right: 20px;
+            border-radius: 4px;
+        }
+
+        #display-word {
+            font-size: 1.6rem;
+            font-weight: bold;
+            color: #34495e;
+        }
+
+        input[type="text"] {
+            padding: 12px;
+            font-size: 1.3rem;
+            border: 2px solid #bdc3c7;
+            border-radius: 6px;
+            flex-grow: 1;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        #feedback-area {
+            margin-top: 20px;
+            text-align: center;
+            min-height: 80px;
+        }
+
+        #feedback-text {
+            font-size: 1.4rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .correct { color: #27ae60; }
+        .incorrect { color: #e74c3c; }
+        .close { color: #d35400; }
+
+        .instruction {
+            color: #7f8c8d;
+            font-size: 0.95rem;
+            font-style: italic;
+        }
+
+        #accent-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            min-height: 40px;
+        }
+
+        .accent-btn {
+            padding: 6px 12px;
+            font-size: 1.1rem;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            cursor: pointer;
+        }
+
+        .accent-hidden {
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+  /* License MIT used in this file */
+  #license {
+      position: fixed;
+      bottom: 5px;
+      right: 10px;
+      font-size: 10px;
+      opacity: 0.5;
+  }
+  #license a {
+      color: inherit;
+      text-decoration: none;
+  }
+  #license a:hover {
+      text-decoration: underline;
+  }  
+  /* License */
+
+    </style>
+</head>
+<body>
+
+    <h1>Écoutez et répétez</h1>
+
+    <div id="game-container">
+        <div class="row">
+            <img id="top-flag" class="flag" src="" alt="Flag">
+            <div id="display-word"></div>
+        </div>
+
+        <div class="row">
+            <img id="bottom-flag" class="flag" src="" alt="Flag">
+            <input type="text" id="user-input" autocomplete="off" placeholder="Traduisez...">
+        </div>
+
+        <div id="accent-row">
+            <button class="accent-btn">é</button>
+            <button class="accent-btn">è</button>
+            <button class="accent-btn">ê</button>
+            <button class="accent-btn">à</button>
+            <button class="accent-btn">ç</button>
+        </div>
+
+        <div id="feedback-area">
+            <div id="feedback-text"></div>
+            <div id="instruction-text" class="instruction"></div>
+        </div>
+
+        <div id="scoreboard" style="display: flex; justify-content: space-around; margin-top: 25px; padding-top: 15px; border-top: 1px solid #e2e8f0; font-size: 1.1rem; font-weight: bold; color: #4a5568;">
+            <div>Right: <span id="score-right" style="color: #27ae60;">0</span></div>
+            <div>Close: <span id="score-close" style="color: #d35400;">0</span></div>
+            <div>Wrong: <span id="score-wrong" style="color: #e74c3c;">0</span></div>
+        </div>
+    </div>
+
+    <script>
+        // Data definition
+	const vocabulary = [
+    { id: 1, french: "comme", french_alt: [], english: "as", english_alt: [] },
+    { id: 2, french: "je", french_alt: [], english: "I", english_alt: [] },
+    { id: 3, french: "son", french_alt: [], english: "his", english_alt: [] },
+    { id: 4, french: "que", french_alt: [], english: "that", english_alt: ["what"] },
+    { id: 5, french: "il", french_alt: [], english: "he", english_alt: ["it"] },
+    { id: 6, french: "était", french_alt: [], english: "was", english_alt: [] },
+    { id: 7, french: "pour", french_alt: [], english: "for", english_alt: [] },
+    { id: 8, french: "sur", french_alt: [], english: "on", english_alt: ["about","over"] },
+    { id: 9, french: "sont", french_alt: [], english: "are", english_alt: [] },
+    { id: 10, french: "avec", french_alt: [], english: "with", english_alt: [] },
+    { id: 11, french: "ils", french_alt: ["elles"], english: "they", english_alt: [] },
+    { id: 12, french: "être", french_alt: [], english: "be", english_alt: [] },
+    { id: 13, french: "à", french_alt: [], english: "at", english_alt: ["to"] },
+    { id: 14, french: "un", french_alt: [], english: "one", english_alt: ["a", "an"] },
+    { id: 15, french: "avoir", french_alt: [], english: "have", english_alt: [] },
+    { id: 16, french: "ce", french_alt: [], english: "this", english_alt: [] },
+    { id: 17, french: "à partir de", french_alt: [], english: "from", english_alt: [] },
+    { id: 18, french: "par", french_alt: [], english: "by", english_alt: ["through"] },
+    { id: 19, french: "chaud", french_alt: [], english: "hot", english_alt: [] },
+    { id: 20, french: "mot", french_alt: [], english: "word", english_alt: [] },
+    { id: 21, french: "mais", french_alt: [], english: "but", english_alt: [] },
+    { id: 22, french: "que", french_alt: [], english: "what", english_alt: ["that"] },
+    { id: 23, french: "certains", french_alt: [], english: "some", english_alt: [] },
+    { id: 24, french: "est", french_alt: [], english: "is", english_alt: [] },
+    { id: 25, french: "il", french_alt: [], english: "it", english_alt: ["he"] },
+    { id: 26, french: "vous", french_alt: [], english: "you", english_alt: [] },
+    { id: 27, french: "ou", french_alt: [], english: "or", english_alt: [] },
+    { id: 28, french: "eu", french_alt: [], english: "had", english_alt: [] },
+    { id: 29, french: "la", french_alt: ["le"], english: "the", english_alt: [] },
+    { id: 30, french: "de", french_alt: [], english: "of", english_alt: [] },
+    { id: 31, french: "à", french_alt: [], english: "to", english_alt: ["at"] },
+    { id: 32, french: "et", french_alt: [], english: "and", english_alt: [] },
+    { id: 33, french: "un", french_alt: [], english: "a", english_alt: ["one", "an"] },
+    { id: 34, french: "dans", french_alt: [], english: "in", english_alt: [] },
+    { id: 35, french: "nous", french_alt: [], english: "we", english_alt: ["us"] },
+    { id: 37, french: "dehors", french_alt: [], english: "out", english_alt: [] },
+    { id: 38, french: "autre", french_alt: [], english: "other", english_alt: [] },
+    { id: 39, french: "étaient", french_alt: [], english: "were", english_alt: [] },
+    { id: 40, french: "qui", french_alt: [], english: "which", english_alt: [] },
+    { id: 41, french: "faire", french_alt: [], english: "do", english_alt: ["make"] },
+    { id: 42, french: "leur", french_alt: [], english: "their", english_alt: [] },
+    { id: 43, french: "temps", french_alt: [], english: "time", english_alt: [] },
+    { id: 44, french: "si", french_alt: [], english: "if", english_alt: ["so","whether"] },
+    { id: 45, french: "volonté", french_alt: [], english: "will", english_alt: [] },
+    { id: 46, french: "comment", french_alt: [], english: "how", english_alt: [] },
+    { id: 47, french: "dit", french_alt: [], english: "said", english_alt: [] },
+    { id: 48, french: "un", french_alt: [], english: "an", english_alt: ["one", "a"] },
+    { id: 49, french: "chaque", french_alt: [], english: "each", english_alt: [] },
+    { id: 50, french: "dire", french_alt: [], english: "tell", english_alt: ["say"] },
+    { id: 52, french: "ensemble", french_alt: [], english: "set", english_alt: ["together","whole"] },
+    { id: 53, french: "trois", french_alt: [], english: "three", english_alt: [] },
+    { id: 54, french: "vouloir", french_alt: [], english: "want", english_alt: [] },
+    { id: 55, french: "air", french_alt: [], english: "air", english_alt: [] },
+    { id: 56, french: "bien", french_alt: [], english: "well", english_alt: [] },
+    { id: 57, french: "aussi", french_alt: [], english: "also", english_alt: [] },
+    { id: 58, french: "jouer", french_alt: [], english: "play", english_alt: [] },
+    { id: 59, french: "petit", french_alt: ["petite"], english: "small", english_alt: [] },
+    { id: 60, french: "fin", french_alt: [], english: "end", english_alt: [] },
+    { id: 61, french: "mettre", french_alt: [], english: "put", english_alt: [] },
+    { id: 62, french: "maison", french_alt: [], english: "home", english_alt: ["house"] },
+    { id: 63, french: "lire", french_alt: [], english: "read", english_alt: [] },
+    { id: 64, french: "main", french_alt: [], english: "hand", english_alt: [] },
+    { id: 65, french: "port", french_alt: [], english: "port", english_alt: [] },
+    { id: 66, french: "grand", french_alt: [], english: "large", english_alt: ["big","great"] },
+    { id: 67, french: "épeler", french_alt: [], english: "spell", english_alt: [] },
+    { id: 68, french: "ajouter", french_alt: [], english: "add", english_alt: [] },
+    { id: 69, french: "même", french_alt: [], english: "even", english_alt: ["same"] },
+    { id: 70, french: "terre", french_alt: [], english: "land", english_alt: ["earth"] },
+    { id: 71, french: "ici", french_alt: [], english: "here", english_alt: [] },
+    { id: 72, french: "il faut", french_alt: [], english: "must", english_alt: [] },
+    { id: 73, french: "grand", french_alt: [], english: "big", english_alt: ["great","grand"] },
+    { id: 74, french: "haut", french_alt: [], english: "high", english_alt: ["top","tall"] },
+    { id: 75, french: "tel", french_alt: [], english: "such", english_alt: [] },
+    { id: 76, french: "suivre", french_alt: [], english: "follow", english_alt: [] },
+    { id: 77, french: "acte", french_alt: [], english: "act", english_alt: [] },
+    { id: 78, french: "pourquoi", french_alt: [], english: "why", english_alt: [] },
+    { id: 79, french: "interroger", french_alt: [], english: "ask", english_alt: [] },
+    { id: 80, french: "hommes", french_alt: [], english: "men", english_alt: [] },
+    { id: 81, french: "changement", french_alt: [], english: "change", english_alt: [] },
+    { id: 83, french: "lumière", french_alt: [], english: "light", english_alt: [] },
+    { id: 84, french: "genre", french_alt: [], english: "kind", english_alt: [] },
+    { id: 86, french: "besoin", french_alt: [], english: "need", english_alt: [] },
+    { id: 88, french: "image", french_alt: [], english: "picture", english_alt: [] },
+    { id: 89, french: "essayer", french_alt: [], english: "try", english_alt: [] },
+    { id: 91, french: "encore", french_alt: [], english: "again", english_alt: ["still","yet"] },
+    { id: 92, french: "animal", french_alt: [], english: "animal", english_alt: [] },
+    { id: 93, french: "point", french_alt: [], english: "point", english_alt: [] },
+    { id: 94, french: "mère", french_alt: [], english: "mother", english_alt: [] },
+    { id: 95, french: "monde", french_alt: [], english: "world", english_alt: [] },
+    { id: 96, french: "près de", french_alt: [], english: "near", english_alt: [] },
+    { id: 97, french: "construire", french_alt: [], english: "build", english_alt: [] },
+    { id: 98, french: "soi", french_alt: [], english: "self", english_alt: [] },
+    { id: 99, french: "terre", french_alt: [], english: "earth", english_alt: ["land"] },
+    { id: 100, french: "père", french_alt: [], english: "father", english_alt: [] },
+    { id: 101, french: "tout", french_alt: [], english: "any", english_alt: [] },
+    { id: 102, french: "nouveau", french_alt: [], english: "new", english_alt: [] },
+    { id: 103, french: "travail", french_alt: [], english: "work", english_alt: [] },
+    { id: 104, french: "partie", french_alt: [], english: "part", english_alt: [] },
+    { id: 105, french: "prendre", french_alt: [], english: "take", english_alt: [] },
+    { id: 106, french: "obtenir", french_alt: [], english: "get", english_alt: [] },
+    { id: 107, french: "lieu", french_alt: [], english: "place", english_alt: [] },
+    { id: 108, french: "fabriqué", french_alt: [], english: "made", english_alt: [] },
+    { id: 109, french: "vivre", french_alt: [], english: "live", english_alt: [] },
+    { id: 110, french: "où", french_alt: [], english: "where", english_alt: [] },
+    { id: 111, french: "après", french_alt: [], english: "after", english_alt: [] },
+    { id: 112, french: "arrière", french_alt: [], english: "back", english_alt: [] },
+    { id: 113, french: "peu", french_alt: [], english: "little", english_alt: ["few"] },
+    { id: 114, french: "seulement", french_alt: [], english: "only", english_alt: [] },
+    { id: 115, french: "tour", french_alt: [], english: "round", english_alt: ["turn","ride"] },
+    { id: 116, french: "homme", french_alt: [], english: "man", english_alt: [] },
+    { id: 117, french: "année", french_alt: [], english: "year", english_alt: [] },
+    { id: 119, french: "montrer", french_alt: [], english: "show", english_alt: [] },
+    { id: 120, french: "tous", french_alt: [], english: "every", english_alt: ["all"] },
+    { id: 121, french: "bon", french_alt: [], english: "good", english_alt: [] },
+    { id: 122, french: "moi", french_alt: [], english: "me", english_alt: [] },
+    { id: 123, french: "donner", french_alt: [], english: "give", english_alt: [] },
+    { id: 124, french: "notre", french_alt: [], english: "our", english_alt: [] },
+    { id: 125, french: "sous", french_alt: [], english: "under", english_alt: [] },
+    { id: 126, french: "nom", french_alt: [], english: "name", english_alt: [] },
+    { id: 127, french: "très", french_alt: [], english: "very", english_alt: [] },
+    { id: 128, french: "par", french_alt: [], english: "through", english_alt: ["by"] },
+    { id: 129, french: "juste", french_alt: [], english: "just", english_alt: [] },
+    { id: 130, french: "forme", french_alt: [], english: "form", english_alt: ["shape"] },
+    { id: 131, french: "phrase", french_alt: [], english: "sentence", english_alt: [] },
+    { id: 132, french: "grand", french_alt: [], english: "great", english_alt: ["big","large"] },
+    { id: 133, french: "penser", french_alt: [], english: "think", english_alt: [] },
+    { id: 134, french: "dire", french_alt: [], english: "say", english_alt: ["tell"] },
+    { id: 135, french: "aider", french_alt: [], english: "help", english_alt: [] },
+    { id: 136, french: "faible", french_alt: [], english: "low", english_alt: [] },
+    { id: 137, french: "ligne", french_alt: [], english: "line", english_alt: [] },
+    { id: 138, french: "différer", french_alt: [], english: "differ", english_alt: [] },
+    { id: 139, french: "tour", french_alt: [], english: "turn", english_alt: ["round","ride"] },
+    { id: 140, french: "la cause", french_alt: [], english: "cause", english_alt: [] },
+    { id: 141, french: "beaucoup", french_alt: [], english: "much", english_alt: ["many"] },
+    { id: 142, french: "signifier", french_alt: [], english: "mean", english_alt: [] },
+    { id: 143, french: "avant", french_alt: [], english: "before", english_alt: [] },
+    { id: 144, french: "déménagement", french_alt: [], english: "move", english_alt: [] },
+    { id: 145, french: "droit", french_alt: [], english: "right", english_alt: [] },
+    { id: 146, french: "garçon", french_alt: [], english: "boy", english_alt: [] },
+    { id: 147, french: "vieux", french_alt: [], english: "old", english_alt: [] },
+    { id: 148, french: "trop", french_alt: [], english: "too", english_alt: [] },
+    { id: 149, french: "même", french_alt: [], english: "same", english_alt: ["even"] },
+    { id: 150, french: "elle", french_alt: [], english: "she", english_alt: [] },
+    { id: 151, french: "tous", french_alt: [], english: "all", english_alt: ["every"] },
+    { id: 152, french: "là", french_alt: [], english: "there", english_alt: [] },
+    { id: 153, french: "quand", french_alt: [], english: "when", english_alt: [] },
+    { id: 154, french: "jusqu’à", french_alt: [], english: "up", english_alt: [] },
+    { id: 155, french: "utiliser", french_alt: [], english: "use", english_alt: [] },
+    { id: 156, french: "votre", french_alt: [], english: "your", english_alt: [] },
+    { id: 157, french: "manière", french_alt: [], english: "way", english_alt: [] },
+    { id: 158, french: "sur", french_alt: [], english: "about", english_alt: ["on","over"] },
+    { id: 159, french: "beaucoup", french_alt: [], english: "many", english_alt: ["much"] },
+    { id: 160, french: "puis", french_alt: [], english: "then", english_alt: [] },
+    { id: 161, french: "les", french_alt: [], english: "them", english_alt: [] },
+    { id: 162, french: "écrire", french_alt: [], english: "write", english_alt: [] },
+    { id: 163, french: "voudrais", french_alt: [], english: "would", english_alt: [] },
+    { id: 164, french: "comme", french_alt: [], english: "like", english_alt: [] },
+    { id: 165, french: "si", french_alt: [], english: "so", english_alt: ["if","whether"] },
+    { id: 166, french: "ces", french_alt: [], english: "these", english_alt: [] },
+    { id: 167, french: "son", french_alt: [], english: "her", english_alt: [] },
+    { id: 168, french: "long", french_alt: [], english: "long", english_alt: [] },
+    { id: 169, french: "faire", french_alt: [], english: "make", english_alt: ["do"] },
+    { id: 170, french: "chose", french_alt: [], english: "thing", english_alt: [] },
+    { id: 171, french: "voir", french_alt: [], english: "see", english_alt: [] },
+    { id: 172, french: "lui", french_alt: [], english: "him", english_alt: [] },
+    { id: 173, french: "deux", french_alt: [], english: "two", english_alt: [] },
+    { id: 174, french: "a", french_alt: [], english: "has", english_alt: [] },
+    { id: 175, french: "regarder", french_alt: [], english: "look", english_alt: ["watch"] },
+    { id: 176, french: "plus", french_alt: [], english: "more", english_alt: ["most"] },
+    { id: 177, french: "jour", french_alt: [], english: "day", english_alt: [] },
+    { id: 178, french: "pourrait", french_alt: [], english: "could", english_alt: [] },
+    { id: 179, french: "aller", french_alt: [], english: "go", english_alt: [] },
+    { id: 180, french: "venir", french_alt: [], english: "come", english_alt: [] },
+    { id: 181, french: "fait", french_alt: [], english: "did", english_alt: [] },
+    { id: 182, french: "nombre", french_alt: [], english: "number", english_alt: [] },
+    { id: 183, french: "son", french_alt: [], english: "sound", english_alt: [] },
+    { id: 184, french: "aucun", french_alt: [], english: "no", english_alt: [] },
+    { id: 185, french: "plus", french_alt: [], english: "most", english_alt: ["more"] },
+    { id: 186, french: "personnes", french_alt: [], english: "people", english_alt: [] },
+    { id: 187, french: "ma", french_alt: [], english: "my", english_alt: [] },
+    { id: 188, french: "sur", french_alt: [], english: "over", english_alt: ["on","about"] },
+    { id: 189, french: "savoir", french_alt: [], english: "know", english_alt: [] },
+    { id: 190, french: "eau", french_alt: [], english: "water", english_alt: [] },
+    { id: 191, french: "que", french_alt: [], english: "than", english_alt: [] },
+    { id: 192, french: "appel", french_alt: [], english: "call", english_alt: [] },
+    { id: 193, french: "première", french_alt: [], english: "first", english_alt: [] },
+    { id: 194, french: "qui", french_alt: [], english: "who", english_alt: [] },
+    { id: 195, french: "peut", french_alt: [], english: "may", english_alt: [] },
+    { id: 197, french: "côté", french_alt: [], english: "side", english_alt: [] },
+    { id: 198, french: "été", french_alt: [], english: "been", english_alt: [] },
+    { id: 199, french: "maintenant", french_alt: [], english: "now", english_alt: [] },
+    { id: 200, french: "trouver", french_alt: [], english: "find", english_alt: [] },
+    { id: 201, french: "tête", french_alt: [], english: "head", english_alt: [] },
+    { id: 202, french: "supporter", french_alt: [], english: "stand", english_alt: [] },
+    { id: 203, french: "propre", french_alt: [], english: "own", english_alt: ["clean","proper"] },
+    { id: 204, french: "page", french_alt: [], english: "page", english_alt: [] },
+    { id: 205, french: "devrait", french_alt: [], english: "should", english_alt: [] },
+    { id: 206, french: "pays", french_alt: [], english: "country", english_alt: [] },
+    { id: 207, french: "trouvé", french_alt: [], english: "found", english_alt: [] },
+    { id: 208, french: "réponse", french_alt: [], english: "answer", english_alt: [] },
+    { id: 209, french: "école", french_alt: [], english: "school", english_alt: [] },
+    { id: 210, french: "croître", french_alt: [], english: "grow", english_alt: [] },
+    { id: 211, french: "étude", french_alt: [], english: "study", english_alt: [] },
+    { id: 212, french: "encore", french_alt: [], english: "still", english_alt: ["again","yet"] },
+    { id: 213, french: "apprendre", french_alt: [], english: "learn", english_alt: [] },
+    { id: 214, french: "usine", french_alt: [], english: "plant", english_alt: [] },
+    { id: 215, french: "couvercle", french_alt: [], english: "cover", english_alt: [] },
+    { id: 216, french: "nourriture", french_alt: [], english: "food", english_alt: [] },
+    { id: 217, french: "soleil", french_alt: [], english: "sun", english_alt: [] },
+    { id: 218, french: "quatre", french_alt: [], english: "four", english_alt: [] },
+    { id: 219, french: "entre", french_alt: [], english: "between", english_alt: [] },
+    { id: 220, french: "état", french_alt: [], english: "state", english_alt: [] },
+    { id: 221, french: "garder", french_alt: [], english: "keep", english_alt: [] },
+    { id: 222, french: "œil", french_alt: [], english: "eye", english_alt: [] },
+    { id: 223, french: "jamais", french_alt: [], english: "never", english_alt: [] },
+    { id: 224, french: "dernier", french_alt: [], english: "last", english_alt: [] },
+    { id: 225, french: "laisser", french_alt: [], english: "let", english_alt: ["leave"] },
+    { id: 226, french: "pensée", french_alt: [], english: "thought", english_alt: [] },
+    { id: 227, french: "ville", french_alt: [], english: "city", english_alt: ["town"] },
+    { id: 228, french: "arbre", french_alt: [], english: "tree", english_alt: [] },
+    { id: 229, french: "traverser", french_alt: [], english: "cross", english_alt: [] },
+    { id: 230, french: "ferme", french_alt: [], english: "farm", english_alt: [] },
+    { id: 231, french: "dur", french_alt: [], english: "hard", english_alt: [] },
+    { id: 232, french: "début", french_alt: [], english: "start", english_alt: [] },
+    { id: 233, french: "puissance", french_alt: [], english: "might", english_alt: [] },
+    { id: 234, french: "histoire", french_alt: [], english: "story", english_alt: ["history"] },
+    { id: 235, french: "scie", french_alt: [], english: "saw", english_alt: [] },
+    { id: 236, french: "loin", french_alt: [], english: "far", english_alt: [] },
+    { id: 237, french: "mer", french_alt: [], english: "sea", english_alt: [] },
+    { id: 238, french: "tirer", french_alt: [], english: "draw", english_alt: [] },
+    { id: 239, french: "gauche", french_alt: [], english: "left", english_alt: [] },
+    { id: 240, french: "tard", french_alt: [], english: "late", english_alt: [] },
+    { id: 241, french: "courir", french_alt: [], english: "run", english_alt: [] },
+    { id: 243, french: "tandis que", french_alt: [], english: "while", english_alt: [] },
+    { id: 244, french: "presse", french_alt: [], english: "press", english_alt: [] },
+    { id: 245, french: "proche", french_alt: [], english: "close", english_alt: ["near"] },
+    { id: 246, french: "nuit", french_alt: [], english: "night", english_alt: [] },
+    { id: 247, french: "réel", french_alt: [], english: "real", english_alt: [] },
+    { id: 248, french: "vie", french_alt: [], english: "life", english_alt: [] },
+    { id: 249, french: "peu", french_alt: [], english: "few", english_alt: ["little"] },
+    { id: 250, french: "nord", french_alt: [], english: "north", english_alt: [] },
+    { id: 251, french: "livre", french_alt: [], english: "book", english_alt: [] },
+    { id: 252, french: "porter", french_alt: [], english: "carry", english_alt: [] },
+    { id: 254, french: "science", french_alt: [], english: "science", english_alt: [] },
+    { id: 255, french: "manger", french_alt: [], english: "eat", english_alt: [] },
+    { id: 256, french: "chambre", french_alt: [], english: "room", english_alt: [] },
+    { id: 257, french: "ami", french_alt: [], english: "friend", english_alt: [] },
+    { id: 259, french: "idée", french_alt: [], english: "idea", english_alt: [] },
+    { id: 260, french: "poisson", french_alt: [], english: "fish", english_alt: [] },
+    { id: 261, french: "montagne", french_alt: [], english: "mountain", english_alt: [] },
+    { id: 262, french: "arrêtez", french_alt: [], english: "stop", english_alt: [] },
+    { id: 263, french: "une fois", french_alt: [], english: "once", english_alt: [] },
+    { id: 264, french: "base", french_alt: [], english: "base", english_alt: [] },
+    { id: 265, french: "entendre", french_alt: [], english: "hear", english_alt: [] },
+    { id: 266, french: "cheval", french_alt: [], english: "horse", english_alt: [] },
+    { id: 267, french: "coupe", french_alt: [], english: "cut", english_alt: [] },
+    { id: 268, french: "sûr", french_alt: [], english: "sure", english_alt: [] },
+    { id: 269, french: "regarder", french_alt: [], english: "watch", english_alt: ["look"] },
+    { id: 270, french: "couleur", french_alt: [], english: "color", english_alt: [] },
+    { id: 271, french: "face", french_alt: [], english: "face", english_alt: [] },
+    { id: 272, french: "bois", french_alt: [], english: "wood", english_alt: [] },
+    { id: 273, french: "principal", french_alt: [], english: "main", english_alt: [] },
+    { id: 274, french: "ouvert", french_alt: [], english: "open", english_alt: [] },
+    { id: 275, french: "paraître", french_alt: [], english: "seem", english_alt: [] },
+    { id: 276, french: "ensemble", french_alt: [], english: "together", english_alt: ["set","whole"] },
+    { id: 277, french: "suivant", french_alt: [], english: "next", english_alt: [] },
+    { id: 278, french: "blanc", french_alt: [], english: "white", english_alt: [] },
+    { id: 279, french: "enfants", french_alt: [], english: "children", english_alt: [] },
+    { id: 280, french: "commencer", french_alt: [], english: "begin", english_alt: [] },
+    { id: 282, french: "marcher", french_alt: [], english: "walk", english_alt: [] },
+    { id: 283, french: "exemple", french_alt: [], english: "example", english_alt: [] },
+    { id: 284, french: "facilité", french_alt: [], english: "ease", english_alt: [] },
+    { id: 285, french: "papier", french_alt: [], english: "paper", english_alt: [] },
+    { id: 286, french: "groupe", french_alt: [], english: "group", english_alt: [] },
+    { id: 287, french: "toujours", french_alt: [], english: "always", english_alt: [] },
+    { id: 288, french: "musique", french_alt: [], english: "music", english_alt: [] },
+    { id: 289, french: "ceux", french_alt: [], english: "those", english_alt: [] },
+    { id: 290, french: "tous les deux", french_alt: [], english: "both", english_alt: [] },
+    { id: 291, french: "marque", french_alt: [], english: "mark", english_alt: [] },
+    { id: 292, french: "souvent", french_alt: [], english: "often", english_alt: [] },
+    { id: 293, french: "lettre", french_alt: [], english: "letter", english_alt: [] },
+    { id: 294, french: "jusqu’à ce que", french_alt: [], english: "until", english_alt: [] },
+    { id: 295, french: "mile", french_alt: [], english: "mile", english_alt: [] },
+    { id: 296, french: "rivière", french_alt: [], english: "river", english_alt: [] },
+    { id: 297, french: "voiture", french_alt: [], english: "car", english_alt: [] },
+    { id: 298, french: "pieds", french_alt: [], english: "feet", english_alt: [] },
+    { id: 299, french: "soins", french_alt: [], english: "care", english_alt: [] },
+    { id: 300, french: "deuxième", french_alt: [], english: "second", english_alt: [] },
+    { id: 301, french: "assez", french_alt: [], english: "enough", english_alt: [] },
+    { id: 302, french: "plaine", french_alt: [], english: "plain", english_alt: [] },
+    { id: 303, french: "fille", french_alt: [], english: "girl", english_alt: [] },
+    { id: 304, french: "habituel", french_alt: [], english: "usual", english_alt: [] },
+    { id: 305, french: "jeune", french_alt: [], english: "young", english_alt: [] },
+    { id: 306, french: "prêt", french_alt: [], english: "ready", english_alt: [] },
+    { id: 307, french: "au-dessus", french_alt: [], english: "above", english_alt: [] },
+    { id: 308, french: "jamais", french_alt: [], english: "ever", english_alt: [] },
+    { id: 309, french: "rouge", french_alt: [], english: "red", english_alt: [] },
+    { id: 310, french: "liste", french_alt: [], english: "list", english_alt: [] },
+    { id: 311, french: "bien que", french_alt: [], english: "though", english_alt: [] },
+    { id: 312, french: "sentir", french_alt: [], english: "feel", english_alt: [] },
+    { id: 313, french: "parler", french_alt: [], english: "talk", english_alt: [] },
+    { id: 314, french: "oiseau", french_alt: [], english: "bird", english_alt: [] },
+    { id: 315, french: "bientôt", french_alt: [], english: "soon", english_alt: [] },
+    { id: 316, french: "corps", french_alt: [], english: "body", english_alt: [] },
+    { id: 317, french: "chien", french_alt: [], english: "dog", english_alt: [] },
+    { id: 318, french: "famille", french_alt: [], english: "family", english_alt: [] },
+    { id: 319, french: "direct", french_alt: [], english: "direct", english_alt: [] },
+    { id: 320, french: "pose", french_alt: [], english: "pose", english_alt: [] },
+    { id: 321, french: "laisser", french_alt: [], english: "leave", english_alt: ["let"] },
+    { id: 322, french: "chanson", french_alt: [], english: "song", english_alt: [] },
+    { id: 323, french: "mesurer", french_alt: [], english: "measure", english_alt: [] },
+    { id: 324, french: "porte", french_alt: [], english: "door", english_alt: [] },
+    { id: 325, french: "produit", french_alt: [], english: "product", english_alt: [] },
+    { id: 326, french: "noir", french_alt: [], english: "black", english_alt: [] },
+    { id: 327, french: "court", french_alt: [], english: "short", english_alt: [] },
+    { id: 328, french: "chiffre", french_alt: [], english: "numeral", english_alt: [] },
+    { id: 329, french: "classe", french_alt: [], english: "class", english_alt: [] },
+    { id: 330, french: "vent", french_alt: [], english: "wind", english_alt: [] },
+    { id: 331, french: "question", french_alt: [], english: "question", english_alt: [] },
+    { id: 332, french: "arriver", french_alt: [], english: "happen", english_alt: [] },
+    { id: 333, french: "complète", french_alt: [], english: "complete", english_alt: [] },
+    { id: 334, french: "navire", french_alt: [], english: "ship", english_alt: [] },
+    { id: 335, french: "zone", french_alt: [], english: "area", english_alt: [] },
+    { id: 336, french: "moitié", french_alt: [], english: "half", english_alt: [] },
+    { id: 337, french: "rock", french_alt: [], english: "rock", english_alt: [] },
+    { id: 338, french: "ordre", french_alt: [], english: "order", english_alt: [] },
+    { id: 339, french: "feu", french_alt: [], english: "fire", english_alt: [] },
+    { id: 340, french: "sud", french_alt: [], english: "south", english_alt: [] },
+    { id: 341, french: "problème", french_alt: [], english: "problem", english_alt: [] },
+    { id: 342, french: "pièce", french_alt: [], english: "piece", english_alt: [] },
+    { id: 343, french: "dit", french_alt: [], english: "told", english_alt: [] },
+    { id: 344, french: "savait", french_alt: [], english: "knew", english_alt: [] },
+    { id: 345, french: "passer", french_alt: [], english: "pass", english_alt: [] },
+    { id: 346, french: "depuis", french_alt: [], english: "since", english_alt: [] },
+    { id: 347, french: "haut", french_alt: [], english: "top", english_alt: ["high","tall"] },
+    { id: 348, french: "ensemble", french_alt: [], english: "whole", english_alt: ["set","together"] },
+    { id: 349, french: "roi", french_alt: [], english: "king", english_alt: [] },
+    { id: 350, french: "rue", french_alt: [], english: "street", english_alt: [] },
+    { id: 351, french: "pouce", french_alt: [], english: "inch", english_alt: [] },
+    { id: 352, french: "multiplier", french_alt: [], english: "multiply", english_alt: [] },
+    { id: 353, french: "rien", french_alt: [], english: "nothing", english_alt: [] },
+    { id: 354, french: "cours", french_alt: [], english: "course", english_alt: [] },
+    { id: 355, french: "rester", french_alt: [], english: "stay", english_alt: [] },
+    { id: 356, french: "roue", french_alt: [], english: "wheel", english_alt: [] },
+    { id: 357, french: "plein", french_alt: [], english: "full", english_alt: [] },
+    { id: 358, french: "force", french_alt: [], english: "force", english_alt: [] },
+    { id: 359, french: "bleu", french_alt: [], english: "blue", english_alt: [] },
+    { id: 360, french: "objet", french_alt: [], english: "object", english_alt: [] },
+    { id: 361, french: "décider", french_alt: [], english: "decide", english_alt: [] },
+    { id: 362, french: "surface", french_alt: [], english: "surface", english_alt: [] },
+    { id: 363, french: "profond", french_alt: [], english: "deep", english_alt: [] },
+    { id: 364, french: "lune", french_alt: [], english: "moon", english_alt: [] },
+    { id: 365, french: "île", french_alt: [], english: "island", english_alt: [] },
+    { id: 366, french: "pied", french_alt: [], english: "foot", english_alt: [] },
+    { id: 367, french: "système", french_alt: [], english: "system", english_alt: [] },
+    { id: 368, french: "occupé", french_alt: [], english: "busy", english_alt: [] },
+    { id: 369, french: "test", french_alt: [], english: "test", english_alt: [] },
+    { id: 370, french: "record", french_alt: [], english: "record", english_alt: [] },
+    { id: 371, french: "bateau", french_alt: [], english: "boat", english_alt: [] },
+    { id: 372, french: "commun", french_alt: [], english: "common", english_alt: [] },
+    { id: 373, french: "or", french_alt: [], english: "gold", english_alt: [] },
+    { id: 374, french: "possible", french_alt: [], english: "possible", english_alt: [] },
+    { id: 375, french: "plan", french_alt: [], english: "plane", english_alt: ["plan"] },
+    { id: 376, french: "place", french_alt: [], english: "stead", english_alt: [] },
+    { id: 377, french: "sec", french_alt: [], english: "dry", english_alt: [] },
+    { id: 378, french: "se demander", french_alt: [], english: "wonder", english_alt: [] },
+    { id: 379, french: "rire", french_alt: [], english: "laugh", english_alt: [] },
+    { id: 380, french: "mille", french_alt: [], english: "thousand", english_alt: [] },
+    { id: 381, french: "il ya", french_alt: [], english: "ago", english_alt: [] },
+    { id: 382, french: "ran", french_alt: [], english: "ran", english_alt: [] },
+    { id: 383, french: "vérifier", french_alt: [], english: "check", english_alt: [] },
+    { id: 384, french: "jeu", french_alt: [], english: "game", english_alt: [] },
+    { id: 385, french: "forme", french_alt: [], english: "shape", english_alt: ["form"] },
+    { id: 386, french: "assimiler", french_alt: [], english: "equate", english_alt: [] },
+    { id: 388, french: "manquer", french_alt: [], english: "miss", english_alt: [] },
+    { id: 389, french: "apporté", french_alt: [], english: "brought", english_alt: [] },
+    { id: 390, french: "chaleur", french_alt: [], english: "heat", english_alt: [] },
+    { id: 391, french: "neige", french_alt: [], english: "snow", english_alt: [] },
+    { id: 392, french: "pneu", french_alt: [], english: "tire", english_alt: [] },
+    { id: 393, french: "apporter", french_alt: [], english: "bring", english_alt: [] },
+    { id: 394, french: "oui", french_alt: [], english: "yes", english_alt: [] },
+    { id: 395, french: "lointain", french_alt: [], english: "distant", english_alt: [] },
+    { id: 396, french: "remplir", french_alt: [], english: "fill", english_alt: [] },
+    { id: 397, french: "est", french_alt: [], english: "east", english_alt: [] },
+    { id: 398, french: "peindre", french_alt: [], english: "paint", english_alt: [] },
+    { id: 399, french: "langue", french_alt: [], english: "language", english_alt: [] },
+    { id: 400, french: "entre", french_alt: [], english: "among", english_alt: [] },
+    { id: 401, french: "unité", french_alt: [], english: "unit", english_alt: [] },
+    { id: 402, french: "puissance", french_alt: [], english: "power", english_alt: [] },
+    { id: 403, french: "ville", french_alt: [], english: "town", english_alt: ["city"] },
+    { id: 404, french: "fin", french_alt: [], english: "fine", english_alt: [] },
+    { id: 405, french: "certain", french_alt: [], english: "certain", english_alt: [] },
+    { id: 406, french: "voler", french_alt: [], english: "fly", english_alt: [] },
+    { id: 407, french: "tomber", french_alt: [], english: "fall", english_alt: ["drop"] },
+    { id: 408, french: "conduire", french_alt: [], english: "lead", english_alt: [] },
+    { id: 409, french: "cri", french_alt: [], english: "cry", english_alt: [] },
+    { id: 410, french: "sombre", french_alt: [], english: "dark", english_alt: [] },
+    { id: 411, french: "machine", french_alt: [], english: "machine", english_alt: [] },
+    { id: 412, french: "Note", french_alt: [], english: "note", english_alt: [] },
+    { id: 413, french: "patienter", french_alt: [], english: "wait", english_alt: [] },
+    { id: 414, french: "plan", french_alt: [], english: "plan", english_alt: ["plane"] },
+    { id: 415, french: "figure", french_alt: [], english: "figure", english_alt: [] },
+    { id: 416, french: "étoile", french_alt: [], english: "star", english_alt: [] },
+    { id: 417, french: "boîte", french_alt: [], english: "box", english_alt: [] },
+    { id: 418, french: "nom", french_alt: [], english: "noun", english_alt: [] },
+    { id: 419, french: "domaine", french_alt: [], english: "field", english_alt: [] },
+    { id: 420, french: "reste", french_alt: [], english: "rest", english_alt: [] },
+    { id: 421, french: "correct", french_alt: [], english: "correct", english_alt: [] },
+    { id: 422, french: "capable", french_alt: [], english: "able", english_alt: [] },
+    { id: 423, french: "livre", french_alt: [], english: "pound", english_alt: [] },
+    { id: 424, french: "terminé", french_alt: [], english: "done", english_alt: [] },
+    { id: 425, french: "beauté", french_alt: [], english: "beauty", english_alt: [] },
+    { id: 426, french: "entraînement", french_alt: [], english: "drive", english_alt: [] },
+    { id: 427, french: "résisté", french_alt: [], english: "stood", english_alt: [] },
+    { id: 428, french: "contenir", french_alt: [], english: "contain", english_alt: [] },
+    { id: 429, french: "avant", french_alt: [], english: "front", english_alt: [] },
+    { id: 430, french: "enseigner", french_alt: [], english: "teach", english_alt: [] },
+    { id: 431, french: "semaine", french_alt: [], english: "week", english_alt: [] },
+    { id: 432, french: "finale", french_alt: [], english: "final", english_alt: [] },
+    { id: 433, french: "donné", french_alt: [], english: "gave", english_alt: [] },
+    { id: 434, french: "vert", french_alt: [], english: "green", english_alt: [] },
+    { id: 435, french: "oh", french_alt: [], english: "oh", english_alt: [] },
+    { id: 436, french: "rapide", french_alt: [], english: "quick", english_alt: [] },
+    { id: 437, french: "développer", french_alt: [], english: "develop", english_alt: [] },
+    { id: 438, french: "océan", french_alt: [], english: "ocean", english_alt: [] },
+    { id: 439, french: "chaud", french_alt: [], english: "warm", english_alt: [] },
+    { id: 440, french: "gratuit", french_alt: [], english: "free", english_alt: [] },
+    { id: 441, french: "minute", french_alt: [], english: "minute", english_alt: [] },
+    { id: 442, french: "fort", french_alt: [], english: "strong", english_alt: [] },
+    { id: 443, french: "spécial", french_alt: [], english: "special", english_alt: [] },
+    { id: 444, french: "esprit", french_alt: [], english: "mind", english_alt: [] },
+    { id: 445, french: "derrière", french_alt: [], english: "behind", english_alt: [] },
+    { id: 446, french: "clair", french_alt: [], english: "clear", english_alt: [] },
+    { id: 447, french: "queue", french_alt: [], english: "tail", english_alt: [] },
+    { id: 448, french: "produire", french_alt: [], english: "produce", english_alt: [] },
+    { id: 449, french: "fait", french_alt: [], english: "fact", english_alt: [] },
+    { id: 450, french: "espace", french_alt: [], english: "space", english_alt: [] },
+    { id: 451, french: "entendu", french_alt: [], english: "heard", english_alt: [] },
+    { id: 452, french: "meilleur", french_alt: [], english: "best", english_alt: [] },
+    { id: 453, french: "heure", french_alt: [], english: "hour", english_alt: [] },
+    { id: 454, french: "mieux", french_alt: [], english: "better", english_alt: [] },
+    { id: 455, french: "vrai", french_alt: [], english: "true", english_alt: [] },
+    { id: 456, french: "pendant", french_alt: [], english: "during", english_alt: [] },
+    { id: 457, french: "cent", french_alt: [], english: "hundred", english_alt: [] },
+    { id: 458, french: "cinq", french_alt: [], english: "five", english_alt: [] },
+    { id: 459, french: "rappeler", french_alt: [], english: "remember", english_alt: [] },
+    { id: 460, french: "étape", french_alt: [], english: "step", english_alt: [] },
+    { id: 461, french: "tôt", french_alt: [], english: "early", english_alt: [] },
+    { id: 462, french: "tenir", french_alt: [], english: "hold", english_alt: [] },
+    { id: 463, french: "ouest", french_alt: [], english: "west", english_alt: [] },
+    { id: 464, french: "sol", french_alt: [], english: "ground", english_alt: [] },
+    { id: 465, french: "intérêt", french_alt: [], english: "interest", english_alt: [] },
+    { id: 466, french: "atteindre", french_alt: [], english: "reach", english_alt: [] },
+    { id: 467, french: "rapide", french_alt: [], english: "fast", english_alt: [] },
+    { id: 468, french: "verbe", french_alt: [], english: "verb", english_alt: [] },
+    { id: 469, french: "chanter", french_alt: [], english: "sing", english_alt: [] },
+    { id: 470, french: "écouter", french_alt: [], english: "listen", english_alt: [] },
+    { id: 471, french: "six", french_alt: [], english: "six", english_alt: [] },
+    { id: 472, french: "table", french_alt: [], english: "table", english_alt: [] },
+    { id: 473, french: "voyage", french_alt: [], english: "travel", english_alt: [] },
+    { id: 474, french: "moins", french_alt: [], english: "less", english_alt: [] },
+    { id: 475, french: "matin", french_alt: [], english: "morning", english_alt: [] },
+    { id: 476, french: "dix", french_alt: [], english: "ten", english_alt: [] },
+    { id: 477, french: "simple", french_alt: [], english: "simple", english_alt: [] },
+    { id: 478, french: "plusieurs", french_alt: [], english: "several", english_alt: [] },
+    { id: 479, french: "voyelle", french_alt: [], english: "vowel", english_alt: [] },
+    { id: 480, french: "vers", french_alt: [], english: "toward", english_alt: [] },
+    { id: 481, french: "guerre", french_alt: [], english: "war", english_alt: [] },
+    { id: 482, french: "poser", french_alt: [], english: "lay", english_alt: [] },
+    { id: 483, french: "contre", french_alt: [], english: "against", english_alt: [] },
+    { id: 484, french: "modèle", french_alt: [], english: "pattern", english_alt: [] },
+    { id: 485, french: "lent", french_alt: [], english: "slow", english_alt: [] },
+    { id: 486, french: "centre", french_alt: [], english: "center", english_alt: [] },
+    { id: 487, french: "amour", french_alt: [], english: "love", english_alt: [] },
+    { id: 488, french: "personne", french_alt: [], english: "person", english_alt: [] },
+    { id: 489, french: "argent", french_alt: [], english: "money", english_alt: ["silver"] },
+    { id: 490, french: "servir", french_alt: [], english: "serve", english_alt: [] },
+    { id: 491, french: "apparaître", french_alt: [], english: "appear", english_alt: [] },
+    { id: 492, french: "route", french_alt: [], english: "road", english_alt: [] },
+    { id: 493, french: "carte", french_alt: [], english: "map", english_alt: [] },
+    { id: 494, french: "pluie", french_alt: [], english: "rain", english_alt: [] },
+    { id: 495, french: "règle", french_alt: [], english: "rule", english_alt: [] },
+    { id: 496, french: "gouverner", french_alt: [], english: "govern", english_alt: [] },
+    { id: 497, french: "tirer", french_alt: [], english: "pull", english_alt: [] },
+    { id: 498, french: "froid", french_alt: [], english: "cold", english_alt: [] },
+    { id: 499, french: "avis", french_alt: [], english: "notice", english_alt: [] },
+    { id: 500, french: "voix", french_alt: [], english: "voice", english_alt: [] },
+    { id: 501, french: "énergie", french_alt: [], english: "energy", english_alt: [] },
+    { id: 502, french: "chasse", french_alt: [], english: "hunt", english_alt: [] },
+    { id: 503, french: "probable", french_alt: [], english: "probable", english_alt: [] },
+    { id: 504, french: "lit", french_alt: [], english: "bed", english_alt: [] },
+    { id: 505, french: "frère", french_alt: [], english: "brother", english_alt: [] },
+    { id: 506, french: "œuf", french_alt: [], english: "egg", english_alt: [] },
+    { id: 507, french: "tour", french_alt: [], english: "ride", english_alt: ["round","turn"] },
+    { id: 508, french: "cellule", french_alt: [], english: "cell", english_alt: [] },
+    { id: 509, french: "croire", french_alt: [], english: "believe", english_alt: [] },
+    { id: 510, french: "peut-être", french_alt: [], english: "perhaps", english_alt: [] },
+    { id: 511, french: "choisir", french_alt: [], english: "pick", english_alt: [] },
+    { id: 512, french: "soudain", french_alt: [], english: "sudden", english_alt: [] },
+    { id: 513, french: "compter", french_alt: [], english: "count", english_alt: [] },
+    { id: 514, french: "carré", french_alt: [], english: "square", english_alt: [] },
+    { id: 515, french: "raison", french_alt: [], english: "reason", english_alt: [] },
+    { id: 516, french: "longueur", french_alt: [], english: "length", english_alt: [] },
+    { id: 517, french: "représenter", french_alt: [], english: "represent", english_alt: [] },
+    { id: 518, french: "art", french_alt: [], english: "art", english_alt: [] },
+    { id: 519, french: "sujet", french_alt: [], english: "subject", english_alt: [] },
+    { id: 520, french: "région", french_alt: [], english: "region", english_alt: [] },
+    { id: 521, french: "taille", french_alt: [], english: "size", english_alt: [] },
+    { id: 522, french: "varier", french_alt: [], english: "vary", english_alt: [] },
+    { id: 523, french: "régler", french_alt: [], english: "settle", english_alt: [] },
+    { id: 524, french: "parler", french_alt: [], english: "speak", english_alt: [] },
+    { id: 525, french: "poids", french_alt: [], english: "weight", english_alt: [] },
+    { id: 526, french: "général", french_alt: [], english: "general", english_alt: [] },
+    { id: 527, french: "glace", french_alt: [], english: "ice", english_alt: [] },
+    { id: 528, french: "matière", french_alt: [], english: "matter", english_alt: [] },
+    { id: 529, french: "cercle", french_alt: [], english: "circle", english_alt: [] },
+    { id: 530, french: "paire", french_alt: [], english: "pair", english_alt: [] },
+    { id: 531, french: "inclure", french_alt: [], english: "include", english_alt: [] },
+    { id: 532, french: "fracture", french_alt: [], english: "divide", english_alt: [] },
+    { id: 533, french: "syllabe", french_alt: [], english: "syllable", english_alt: [] },
+    { id: 534, french: "feutre", french_alt: [], english: "felt", english_alt: [] },
+    { id: 536, french: "balle", french_alt: [], english: "ball", english_alt: [] },
+    { id: 537, french: "encore", french_alt: [], english: "yet", english_alt: ["again","still"] },
+    { id: 538, french: "vague", french_alt: [], english: "wave", english_alt: [] },
+    { id: 539, french: "tomber", french_alt: [], english: "drop", english_alt: ["fall"] },
+    { id: 540, french: "cœur", french_alt: [], english: "heart", english_alt: [] },
+    { id: 542, french: "présent", french_alt: [], english: "present", english_alt: [] },
+    { id: 543, french: "lourd", french_alt: [], english: "heavy", english_alt: [] },
+    { id: 544, french: "danse", french_alt: [], english: "dance", english_alt: [] },
+    { id: 545, french: "moteur", french_alt: [], english: "engine", english_alt: [] },
+    { id: 546, french: "position", french_alt: [], english: "position", english_alt: [] },
+    { id: 547, french: "bras", french_alt: [], english: "arm", english_alt: [] },
+    { id: 548, french: "large", french_alt: [], english: "wide", english_alt: [] },
+    { id: 549, french: "matériel", french_alt: [], english: "material", english_alt: [] },
+    { id: 550, french: "fraction", french_alt: [], english: "fraction", english_alt: [] },
+    { id: 551, french: "forêt", french_alt: [], english: "forest", english_alt: [] },
+    { id: 552, french: "s'asseoir", french_alt: [], english: "sit", english_alt: [] },
+    { id: 553, french: "course", french_alt: [], english: "race", english_alt: [] },
+    { id: 554, french: "fenêtre", french_alt: [], english: "window", english_alt: [] },
+    { id: 555, french: "magasin", french_alt: [], english: "store", english_alt: [] },
+    { id: 556, french: "été", french_alt: [], english: "summer", english_alt: [] },
+    { id: 557, french: "train", french_alt: [], english: "train", english_alt: [] },
+    { id: 558, french: "sommeil", french_alt: [], english: "sleep", english_alt: [] },
+    { id: 559, french: "prouver", french_alt: [], english: "prove", english_alt: [] },
+    { id: 560, french: "seul", french_alt: [], english: "lone", english_alt: [] },
+    { id: 561, french: "jambe", french_alt: [], english: "leg", english_alt: [] },
+    { id: 562, french: "exercice", french_alt: [], english: "exercise", english_alt: [] },
+    { id: 563, french: "mur", french_alt: [], english: "wall", english_alt: [] },
+    { id: 564, french: "capture", french_alt: [], english: "catch", english_alt: [] },
+    { id: 565, french: "monture", french_alt: [], english: "mount", english_alt: [] },
+    { id: 566, french: "souhaiter", french_alt: [], english: "wish", english_alt: [] },
+    { id: 567, french: "ciel", french_alt: [], english: "sky", english_alt: [] },
+    { id: 568, french: "conseil", french_alt: [], english: "board", english_alt: [] },
+    { id: 569, french: "joie", french_alt: [], english: "joy", english_alt: [] },
+    { id: 570, french: "hiver", french_alt: [], english: "winter", english_alt: [] },
+    { id: 571, french: "sat", french_alt: [], english: "sat", english_alt: [] },
+    { id: 572, french: "écrit", french_alt: [], english: "written", english_alt: [] },
+    { id: 573, french: "sauvage", french_alt: [], english: "wild", english_alt: [] },
+    { id: 574, french: "instrument", french_alt: [], english: "instrument", english_alt: [] },
+    { id: 575, french: "conservé", french_alt: [], english: "kept", english_alt: [] },
+    { id: 576, french: "verre", french_alt: [], english: "glass", english_alt: [] },
+    { id: 577, french: "herbe", french_alt: [], english: "grass", english_alt: [] },
+    { id: 578, french: "vache", french_alt: [], english: "cow", english_alt: [] },
+    { id: 579, french: "emploi", french_alt: [], english: "job", english_alt: [] },
+    { id: 580, french: "bord", french_alt: [], english: "edge", english_alt: [] },
+    { id: 581, french: "signe", french_alt: [], english: "sign", english_alt: [] },
+    { id: 582, french: "visite", french_alt: [], english: "visit", english_alt: [] },
+    { id: 583, french: "passé", french_alt: [], english: "past", english_alt: [] },
+    { id: 584, french: "doux", french_alt: [], english: "soft", english_alt: ["gentle"] },
+    { id: 585, french: "amusement", french_alt: [], english: "fun", english_alt: [] },
+    { id: 586, french: "lumineux", french_alt: [], english: "bright", english_alt: [] },
+    { id: 587, french: "gaz", french_alt: [], english: "gas", english_alt: [] },
+    { id: 588, french: "temps", french_alt: [], english: "weather", english_alt: [] },
+    { id: 589, french: "mois", french_alt: [], english: "month", english_alt: [] },
+    { id: 590, french: "million", french_alt: [], english: "million", english_alt: [] },
+    { id: 591, french: "porter", french_alt: [], english: "bear", english_alt: [] },
+    { id: 592, french: "finition", french_alt: [], english: "finish", english_alt: [] },
+    { id: 593, french: "heureux", french_alt: [], english: "happy", english_alt: [] },
+    { id: 594, french: "espoir", french_alt: [], english: "hope", english_alt: [] },
+    { id: 595, french: "fleur", french_alt: [], english: "flower", english_alt: [] },
+    { id: 596, french: "vêtir", french_alt: [], english: "clothe", english_alt: [] },
+    { id: 597, french: "étrange", french_alt: [], english: "strange", english_alt: [] },
+    { id: 598, french: "disparu", french_alt: [], english: "gone", english_alt: [] },
+    { id: 599, french: "commerce", french_alt: [], english: "trade", english_alt: [] },
+    { id: 600, french: "mélodie", french_alt: [], english: "melody", english_alt: [] },
+    { id: 601, french: "voyage", french_alt: [], english: "trip", english_alt: [] },
+    { id: 602, french: "bureau", french_alt: [], english: "office", english_alt: [] },
+    { id: 603, french: "recevoir", french_alt: [], english: "receive", english_alt: [] },
+    { id: 604, french: "rangée", french_alt: [], english: "row", english_alt: [] },
+    { id: 605, french: "bouche", french_alt: [], english: "mouth", english_alt: [] },
+    { id: 606, french: "exact", french_alt: [], english: "exact", english_alt: [] },
+    { id: 607, french: "symbole", french_alt: [], english: "symbol", english_alt: [] },
+    { id: 608, french: "mourir", french_alt: [], english: "die", english_alt: [] },
+    { id: 609, french: "moins", french_alt: [], english: "least", english_alt: [] },
+    { id: 610, french: "difficulté", french_alt: [], english: "trouble", english_alt: [] },
+    { id: 612, french: "sauf", french_alt: [], english: "except", english_alt: [] },
+    { id: 613, french: "écrit", french_alt: [], english: "wrote", english_alt: [] },
+    { id: 614, french: "semence", french_alt: [], english: "seed", english_alt: [] },
+    { id: 615, french: "ton", french_alt: [], english: "tone", english_alt: [] },
+    { id: 616, french: "joindre", french_alt: [], english: "join", english_alt: [] },
+    { id: 617, french: "suggérer", french_alt: [], english: "suggest", english_alt: [] },
+    { id: 618, french: "propre", french_alt: [], english: "clean", english_alt: ["own","proper"] },
+    { id: 619, french: "pause", french_alt: [], english: "break", english_alt: [] },
+    { id: 620, french: "dame", french_alt: [], english: "lady", english_alt: [] },
+    { id: 621, french: "cour", french_alt: [], english: "yard", english_alt: [] },
+    { id: 622, french: "augmenter", french_alt: [], english: "rise", english_alt: ["raise"] },
+    { id: 623, french: "mauvais", french_alt: [], english: "bad", english_alt: [] },
+    { id: 624, french: "coup", french_alt: [], english: "blow", english_alt: [] },
+    { id: 625, french: "huile", french_alt: [], english: "oil", english_alt: [] },
+    { id: 626, french: "sang", french_alt: [], english: "blood", english_alt: [] },
+    { id: 627, french: "toucher", french_alt: [], english: "touch", english_alt: [] },
+    { id: 629, french: "cent", french_alt: [], english: "cent", english_alt: [] },
+    { id: 630, french: "mélanger", french_alt: [], english: "mix", english_alt: [] },
+    { id: 631, french: "équipe", french_alt: [], english: "team", english_alt: ["crew","squad"] },
+    { id: 632, french: "fil", french_alt: [], english: "wire", english_alt: [] },
+    { id: 633, french: "coût", french_alt: [], english: "cost", english_alt: [] },
+    { id: 634, french: "perdu", french_alt: [], english: "lost", english_alt: [] },
+    { id: 635, french: "brun", french_alt: [], english: "brown", english_alt: [] },
+    { id: 636, french: "porter", french_alt: [], english: "wear", english_alt: [] },
+    { id: 637, french: "jardin", french_alt: [], english: "garden", english_alt: [] },
+    { id: 638, french: "égal", french_alt: [], english: "equal", english_alt: [] },
+    { id: 639, french: "expédié", french_alt: [], english: "sent", english_alt: [] },
+    { id: 640, french: "choisir", french_alt: [], english: "choose", english_alt: [] },
+    { id: 641, french: "est tombé", french_alt: [], english: "fell", english_alt: [] },
+    { id: 642, french: "adapter", french_alt: [], english: "fit", english_alt: [] },
+    { id: 643, french: "débit", french_alt: [], english: "flow", english_alt: ["debit"] },
+    { id: 644, french: "juste", french_alt: [], english: "fair", english_alt: [] },
+    { id: 645, french: "banque", french_alt: [], english: "bank", english_alt: [] },
+    { id: 646, french: "recueillir", french_alt: [], english: "collect", english_alt: [] },
+    { id: 647, french: "sauver", french_alt: [], english: "save", english_alt: [] },
+    { id: 648, french: "contrôle", french_alt: [], english: "control", english_alt: [] },
+    { id: 649, french: "décimal", french_alt: [], english: "decimal", english_alt: [] },
+    { id: 650, french: "oreille", french_alt: [], english: "ear", english_alt: [] },
+    { id: 651, french: "autre", french_alt: [], english: "else", english_alt: [] },
+    { id: 652, french: "tout à fait", french_alt: [], english: "quite", english_alt: [] },
+    { id: 653, french: "brisé", french_alt: [], english: "broke", english_alt: [] },
+    { id: 654, french: "cas", french_alt: [], english: "case", english_alt: [] },
+    { id: 655, french: "milieu", french_alt: [], english: "middle", english_alt: [] },
+    { id: 656, french: "tuer", french_alt: [], english: "kill", english_alt: [] },
+    { id: 657, french: "fils", french_alt: [], english: "son", english_alt: [] },
+    { id: 658, french: "lac", french_alt: [], english: "lake", english_alt: [] },
+    { id: 659, french: "moment", french_alt: [], english: "moment", english_alt: [] },
+    { id: 660, french: "échelle", french_alt: [], english: "scale", english_alt: [] },
+    { id: 661, french: "fort", french_alt: [], english: "loud", english_alt: [] },
+    { id: 662, french: "printemps", french_alt: [], english: "spring", english_alt: [] },
+    { id: 663, french: "observer", french_alt: [], english: "observe", english_alt: [] },
+    { id: 664, french: "enfant", french_alt: [], english: "child", english_alt: [] },
+    { id: 665, french: "droit", french_alt: [], english: "straight", english_alt: [] },
+    { id: 666, french: "consonne", french_alt: [], english: "consonant", english_alt: [] },
+    { id: 667, french: "nation", french_alt: [], english: "nation", english_alt: [] },
+    { id: 668, french: "dictionnaire", french_alt: [], english: "dictionary", english_alt: [] },
+    { id: 669, french: "lait", french_alt: [], english: "milk", english_alt: [] },
+    { id: 670, french: "vitesse", french_alt: [], english: "speed", english_alt: [] },
+    { id: 671, french: "méthode", french_alt: [], english: "method", english_alt: [] },
+    { id: 672, french: "organe", french_alt: [], english: "organ", english_alt: [] },
+    { id: 673, french: "payer", french_alt: [], english: "pay", english_alt: [] },
+    { id: 674, french: "âge", french_alt: [], english: "age", english_alt: [] },
+    { id: 675, french: "section", french_alt: [], english: "section", english_alt: [] },
+    { id: 676, french: "robe", french_alt: [], english: "dress", english_alt: [] },
+    { id: 677, french: "nuage", french_alt: [], english: "cloud", english_alt: [] },
+    { id: 678, french: "surprise", french_alt: [], english: "surprise", english_alt: [] },
+    { id: 679, french: "calme", french_alt: [], english: "quiet", english_alt: [] },
+    { id: 680, french: "pierre", french_alt: [], english: "stone", english_alt: [] },
+    { id: 681, french: "minuscule", french_alt: [], english: "tiny", english_alt: [] },
+    { id: 682, french: "montée", french_alt: [], english: "climb", english_alt: [] },
+    { id: 683, french: "frais", french_alt: [], english: "cool", english_alt: [] },
+    { id: 684, french: "conception", french_alt: [], english: "design", english_alt: [] },
+    { id: 685, french: "pauvre", french_alt: [], english: "poor", english_alt: [] },
+    { id: 686, french: "lot", french_alt: [], english: "lot", english_alt: [] },
+    { id: 687, french: "expérience", french_alt: [], english: "experiment", english_alt: ["experience"] },
+    { id: 688, french: "bas", french_alt: [], english: "bottom", english_alt: [] },
+    { id: 689, french: "clé", french_alt: [], english: "key", english_alt: [] },
+    { id: 690, french: "fer", french_alt: [], english: "iron", english_alt: [] },
+    { id: 691, french: "unique", french_alt: [], english: "single", english_alt: [] },
+    { id: 692, french: "bâton", french_alt: [], english: "stick", english_alt: [] },
+    { id: 693, french: "plat", french_alt: [], english: "flat", english_alt: [] },
+    { id: 694, french: "vingt", french_alt: [], english: "twenty", english_alt: [] },
+    { id: 695, french: "peau", french_alt: [], english: "skin", english_alt: [] },
+    { id: 696, french: "sourire", french_alt: [], english: "smile", english_alt: [] },
+    { id: 697, french: "pli", french_alt: [], english: "crease", english_alt: [] },
+    { id: 698, french: "trou", french_alt: [], english: "hole", english_alt: [] },
+    { id: 699, french: "sauter", french_alt: [], english: "jump", english_alt: [] },
+    { id: 700, french: "bébé", french_alt: [], english: "baby", english_alt: [] },
+    { id: 701, french: "huit", french_alt: [], english: "eight", english_alt: [] },
+    { id: 702, french: "village", french_alt: [], english: "village", english_alt: [] },
+    { id: 703, french: "rencontrer", french_alt: [], english: "meet", english_alt: [] },
+    { id: 704, french: "racine", french_alt: [], english: "root", english_alt: [] },
+    { id: 705, french: "acheter", french_alt: [], english: "buy", english_alt: [] },
+    { id: 706, french: "augmenter", french_alt: [], english: "raise", english_alt: ["rise"] },
+    { id: 707, french: "résoudre", french_alt: [], english: "solve", english_alt: [] },
+    { id: 708, french: "métal", french_alt: [], english: "metal", english_alt: [] },
+    { id: 709, french: "si", french_alt: [], english: "whether", english_alt: ["if","so"] },
+    { id: 710, french: "pousser", french_alt: [], english: "push", english_alt: [] },
+    { id: 711, french: "sept", french_alt: [], english: "seven", english_alt: [] },
+    { id: 712, french: "paragraphe", french_alt: [], english: "paragraph", english_alt: [] },
+    { id: 713, french: "troisième", french_alt: [], english: "third", english_alt: [] },
+    { id: 714, french: "devoir", french_alt: [], english: "shall", english_alt: [] },
+    { id: 715, french: "tenu", french_alt: [], english: "held", english_alt: [] },
+    { id: 716, french: "cheveux", french_alt: [], english: "hair", english_alt: [] },
+    { id: 717, french: "décrire", french_alt: [], english: "describe", english_alt: [] },
+    { id: 718, french: "cuisinier", french_alt: [], english: "cook", english_alt: [] },
+    { id: 719, french: "plancher", french_alt: [], english: "floor", english_alt: [] },
+    { id: 720, french: "chaque", french_alt: [], english: "either", english_alt: [] },
+    { id: 721, french: "résultat", french_alt: [], english: "result", english_alt: [] },
+    { id: 722, french: "brûler", french_alt: [], english: "burn", english_alt: [] },
+    { id: 723, french: "colline", french_alt: [], english: "hill", english_alt: [] },
+    { id: 724, french: "coffre-fort", french_alt: [], english: "safe", english_alt: [] },
+    { id: 725, french: "chat", french_alt: [], english: "cat", english_alt: [] },
+    { id: 726, french: "siècle", french_alt: [], english: "century", english_alt: [] },
+    { id: 727, french: "envisager", french_alt: [], english: "consider", english_alt: [] },
+    { id: 728, french: "type", french_alt: [], english: "type", english_alt: [] },
+    { id: 729, french: "loi", french_alt: [], english: "law", english_alt: [] },
+    { id: 730, french: "bit", french_alt: [], english: "bit", english_alt: [] },
+    { id: 731, french: "côte", french_alt: [], english: "coast", english_alt: [] },
+    { id: 732, french: "copie", french_alt: [], english: "copy", english_alt: [] },
+    { id: 733, french: "phrase", french_alt: [], english: "phrase", english_alt: [] },
+    { id: 734, french: "silencieux", french_alt: [], english: "silent", english_alt: [] },
+    { id: 735, french: "haut", french_alt: [], english: "tall", english_alt: ["high","top"] },
+    { id: 736, french: "sable", french_alt: [], english: "sand", english_alt: [] },
+    { id: 737, french: "sol", french_alt: [], english: "soil", english_alt: [] },
+    { id: 738, french: "rouleau", french_alt: [], english: "roll", english_alt: [] },
+    { id: 739, french: "doigt", french_alt: [], english: "finger", english_alt: [] },
+    { id: 740, french: "industrie", french_alt: [], english: "industry", english_alt: [] },
+    { id: 741, french: "valeur", french_alt: [], english: "value", english_alt: [] },
+    { id: 742, french: "lutte", french_alt: [], english: "fight", english_alt: [] },
+    { id: 743, french: "mensonge", french_alt: [], english: "lie", english_alt: [] },
+    { id: 744, french: "battre", french_alt: [], english: "beat", english_alt: [] },
+    { id: 745, french: "exciter", french_alt: [], english: "excite", english_alt: [] },
+    { id: 746, french: "naturel", french_alt: [], english: "natural", english_alt: [] },
+    { id: 747, french: "vue", french_alt: [], english: "view", english_alt: ["sight"] },
+    { id: 748, french: "sens", french_alt: [], english: "sense", english_alt: [] },
+    { id: 749, french: "capital", french_alt: [], english: "capital", english_alt: [] },
+    { id: 751, french: "chaise", french_alt: [], english: "chair", english_alt: [] },
+    { id: 752, french: "danger", french_alt: [], english: "danger", english_alt: [] },
+    { id: 753, french: "fruit", french_alt: [], english: "fruit", english_alt: [] },
+    { id: 754, french: "riche", french_alt: [], english: "rich", english_alt: [] },
+    { id: 755, french: "épais", french_alt: [], english: "thick", english_alt: [] },
+    { id: 756, french: "soldat", french_alt: [], english: "soldier", english_alt: [] },
+    { id: 757, french: "processus", french_alt: [], english: "process", english_alt: [] },
+    { id: 758, french: "exploiter", french_alt: [], english: "operate", english_alt: [] },
+    { id: 759, french: "pratique", french_alt: [], english: "practice", english_alt: [] },
+    { id: 760, french: "séparé", french_alt: [], english: "separate", english_alt: [] },
+    { id: 761, french: "difficile", french_alt: [], english: "difficult", english_alt: [] },
+    { id: 762, french: "médecin", french_alt: [], english: "doctor", english_alt: [] },
+    { id: 763, french: "s'il vous plaît", french_alt: [], english: "please", english_alt: [] },
+    { id: 764, french: "protéger", french_alt: [], english: "protect", english_alt: [] },
+    { id: 765, french: "midi", french_alt: [], english: "noon", english_alt: [] },
+    { id: 766, french: "culture", french_alt: [], english: "crop", english_alt: [] },
+    { id: 767, french: "moderne", french_alt: [], english: "modern", english_alt: [] },
+    { id: 768, french: "élément", french_alt: [], english: "element", english_alt: [] },
+    { id: 769, french: "frapper", french_alt: [], english: "hit", english_alt: [] },
+    { id: 770, french: "étudiant", french_alt: [], english: "student", english_alt: [] },
+    { id: 771, french: "coin", french_alt: [], english: "corner", english_alt: [] },
+    { id: 772, french: "partie", french_alt: [], english: "party", english_alt: [] },
+    { id: 773, french: "approvisionnement", french_alt: [], english: "supply", english_alt: [] },
+    { id: 774, french: "dont", french_alt: [], english: "whose", english_alt: [] },
+    { id: 775, french: "localiser", french_alt: [], english: "locate", english_alt: [] },
+    { id: 776, french: "anneau", french_alt: [], english: "ring", english_alt: [] },
+    { id: 777, french: "caractère", french_alt: [], english: "character", english_alt: [] },
+    { id: 778, french: "insecte", french_alt: [], english: "insect", english_alt: [] },
+    { id: 779, french: "pris", french_alt: [], english: "caught", english_alt: [] },
+    { id: 780, french: "période", french_alt: [], english: "period", english_alt: [] },
+    { id: 781, french: "indiquer", french_alt: [], english: "indicate", english_alt: [] },
+    { id: 782, french: "radio", french_alt: [], english: "radio", english_alt: [] },
+    { id: 783, french: "rayon", french_alt: [], english: "spoke", english_alt: [] },
+    { id: 784, french: "atome", french_alt: [], english: "atom", english_alt: [] },
+    { id: 785, french: "humain", french_alt: [], english: "human", english_alt: [] },
+    { id: 786, french: "histoire", french_alt: [], english: "history", english_alt: ["story"] },
+    { id: 787, french: "effet", french_alt: [], english: "effect", english_alt: [] },
+    { id: 788, french: "électrique", french_alt: [], english: "electric", english_alt: [] },
+    { id: 789, french: "attendre", french_alt: [], english: "expect", english_alt: [] },
+    { id: 790, french: "os", french_alt: [], english: "bone", english_alt: [] },
+    { id: 791, french: "rail", french_alt: [], english: "rail", english_alt: [] },
+    { id: 792, french: "imaginer", french_alt: [], english: "imagine", english_alt: [] },
+    { id: 793, french: "fournir", french_alt: [], english: "provide", english_alt: [] },
+    { id: 794, french: "accord", french_alt: [], english: "agree", english_alt: [] },
+    { id: 795, french: "ainsi", french_alt: [], english: "thus", english_alt: [] },
+    { id: 796, french: "doux", french_alt: [], english: "gentle", english_alt: ["soft"] },
+    { id: 797, french: "femme", french_alt: [], english: "woman", english_alt: [] },
+    { id: 798, french: "capitaine", french_alt: [], english: "captain", english_alt: [] },
+    { id: 799, french: "deviner", french_alt: [], english: "guess", english_alt: [] },
+    { id: 800, french: "nécessaire", french_alt: [], english: "necessary", english_alt: [] },
+    { id: 801, french: "net", french_alt: [], english: "sharp", english_alt: [] },
+    { id: 802, french: "aile", french_alt: [], english: "wing", english_alt: [] },
+    { id: 803, french: "créer", french_alt: [], english: "create", english_alt: [] },
+    { id: 804, french: "voisin", french_alt: [], english: "neighbor", english_alt: [] },
+    { id: 805, french: "lavage", french_alt: [], english: "wash", english_alt: [] },
+    { id: 806, french: "chauve-souris", french_alt: [], english: "bat", english_alt: [] },
+    { id: 807, french: "plutôt", french_alt: [], english: "rather", english_alt: [] },
+    { id: 808, french: "foule", french_alt: [], english: "crowd", english_alt: [] },
+    { id: 810, french: "comparer", french_alt: [], english: "compare", english_alt: [] },
+    { id: 811, french: "poème", french_alt: [], english: "poem", english_alt: [] },
+    { id: 812, french: "chaîne", french_alt: [], english: "string", english_alt: [] },
+    { id: 813, french: "cloche", french_alt: [], english: "bell", english_alt: [] },
+    { id: 814, french: "dépendre", french_alt: [], english: "depend", english_alt: [] },
+    { id: 815, french: "viande", french_alt: [], english: "meat", english_alt: [] },
+    { id: 817, french: "tube", french_alt: [], english: "tube", english_alt: [] },
+    { id: 818, french: "célèbre", french_alt: [], english: "famous", english_alt: [] },
+    { id: 819, french: "dollar", french_alt: [], english: "dollar", english_alt: [] },
+    { id: 820, french: "courant", french_alt: [], english: "stream", english_alt: [] },
+    { id: 821, french: "peur", french_alt: [], english: "fear", english_alt: ["afraid"] },
+    { id: 822, french: "vue", french_alt: [], english: "sight", english_alt: ["view"] },
+    { id: 823, french: "mince", french_alt: [], english: "thin", english_alt: [] },
+    { id: 824, french: "triangle", french_alt: [], english: "triangle", english_alt: [] },
+    { id: 825, french: "planète", french_alt: [], english: "planet", english_alt: [] },
+    { id: 826, french: "se dépêcher", french_alt: [], english: "hurry", english_alt: [] },
+    { id: 827, french: "chef", french_alt: [], english: "chief", english_alt: [] },
+    { id: 828, french: "colonie", french_alt: [], english: "colony", english_alt: [] },
+    { id: 829, french: "horloge", french_alt: [], english: "clock", english_alt: [] },
+    { id: 830, french: "mien", french_alt: [], english: "mine", english_alt: [] },
+    { id: 831, french: "attacher", french_alt: [], english: "tie", english_alt: [] },
+    { id: 832, french: "entrer", french_alt: [], english: "enter", english_alt: [] },
+    { id: 833, french: "majeur", french_alt: [], english: "major", english_alt: [] },
+    { id: 834, french: "frais", french_alt: [], english: "fresh", english_alt: [] },
+    { id: 835, french: "recherche", french_alt: [], english: "search", english_alt: [] },
+    { id: 836, french: "envoyer", french_alt: [], english: "send", english_alt: [] },
+    { id: 837, french: "jaune", french_alt: [], english: "yellow", english_alt: [] },
+    { id: 838, french: "pistolet", french_alt: [], english: "gun", english_alt: [] },
+    { id: 839, french: "permettre", french_alt: [], english: "allow", english_alt: [] },
+    { id: 840, french: "impression", french_alt: [], english: "print", english_alt: [] },
+    { id: 841, french: "mort", french_alt: [], english: "dead", english_alt: [] },
+    { id: 842, french: "tache", french_alt: [], english: "spot", english_alt: [] },
+    { id: 843, french: "désert", french_alt: [], english: "desert", english_alt: [] },
+    { id: 844, french: "costume", french_alt: [], english: "suit", english_alt: [] },
+    { id: 845, french: "courant", french_alt: [], english: "current", english_alt: [] },
+    { id: 846, french: "ascenseur", french_alt: [], english: "lift", english_alt: [] },
+    { id: 847, french: "rose", french_alt: [], english: "rose", english_alt: [] },
+    { id: 848, french: "arriver", french_alt: [], english: "arrive", english_alt: [] },
+    { id: 849, french: "maître", french_alt: [], english: "master", english_alt: [] },
+    { id: 850, french: "piste", french_alt: [], english: "track", english_alt: [] },
+    { id: 851, french: "parent", french_alt: [], english: "parent", english_alt: [] },
+    { id: 852, french: "rivage", french_alt: [], english: "shore", english_alt: [] },
+    { id: 853, french: "division", french_alt: [], english: "division", english_alt: [] },
+    { id: 854, french: "feuille", french_alt: [], english: "sheet", english_alt: [] },
+    { id: 855, french: "substance", french_alt: [], english: "substance", english_alt: [] },
+    { id: 856, french: "favoriser", french_alt: [], english: "favor", english_alt: [] },
+    { id: 857, french: "relier", french_alt: [], english: "connect", english_alt: [] },
+    { id: 858, french: "poteau", french_alt: [], english: "post", english_alt: [] },
+    { id: 859, french: "passer", french_alt: [], english: "spend", english_alt: [] },
+    { id: 860, french: "corde", french_alt: [], english: "chord", english_alt: [] },
+    { id: 861, french: "graisse", french_alt: [], english: "fat", english_alt: [] },
+    { id: 862, french: "heureux", french_alt: [], english: "glad", english_alt: [] },
+    { id: 863, french: "original", french_alt: [], english: "original", english_alt: [] },
+    { id: 864, french: "part", french_alt: [], english: "share", english_alt: [] },
+    { id: 865, french: "station", french_alt: [], english: "station", english_alt: [] },
+    { id: 866, french: "papa", french_alt: [], english: "dad", english_alt: [] },
+    { id: 867, french: "pain", french_alt: [], english: "bread", english_alt: [] },
+    { id: 868, french: "charger", french_alt: [], english: "charge", english_alt: [] },
+    { id: 869, french: "propre", french_alt: [], english: "proper", english_alt: ["own","clean"] },
+    { id: 870, french: "barre", french_alt: [], english: "bar", english_alt: [] },
+    { id: 871, french: "offre", french_alt: [], english: "offer", english_alt: [] },
+    { id: 872, french: "segment", french_alt: [], english: "segment", english_alt: [] },
+    { id: 873, french: "esclave", french_alt: [], english: "slave", english_alt: [] },
+    { id: 874, french: "canard", french_alt: [], english: "duck", english_alt: [] },
+    { id: 875, french: "instant", french_alt: [], english: "instant", english_alt: [] },
+    { id: 876, french: "marché", french_alt: [], english: "market", english_alt: [] },
+    { id: 877, french: "degré", french_alt: [], english: "degree", english_alt: [] },
+    { id: 878, french: "peupler", french_alt: [], english: "populate", english_alt: [] },
+    { id: 879, french: "poussin", french_alt: [], english: "chick", english_alt: [] },
+    { id: 880, french: "cher", french_alt: [], english: "dear", english_alt: [] },
+    { id: 881, french: "ennemi", french_alt: [], english: "enemy", english_alt: [] },
+    { id: 882, french: "répondre", french_alt: [], english: "reply", english_alt: [] },
+    { id: 883, french: "boisson", french_alt: [], english: "drink", english_alt: [] },
+    { id: 884, french: "se produire", french_alt: [], english: "occur", english_alt: [] },
+    { id: 885, french: "support", french_alt: [], english: "support", english_alt: [] },
+    { id: 886, french: "discours", french_alt: [], english: "speech", english_alt: [] },
+    { id: 887, french: "nature", french_alt: [], english: "nature", english_alt: [] },
+    { id: 888, french: "gamme", french_alt: [], english: "range", english_alt: [] },
+    { id: 889, french: "vapeur", french_alt: [], english: "steam", english_alt: [] },
+    { id: 890, french: "mouvement", french_alt: [], english: "motion", english_alt: [] },
+    { id: 891, french: "chemin", french_alt: [], english: "path", english_alt: [] },
+    { id: 892, french: "liquide", french_alt: [], english: "liquid", english_alt: [] },
+    { id: 893, french: "enregistrer", french_alt: [], english: "log", english_alt: [] },
+    { id: 894, french: "signifiait", french_alt: [], english: "meant", english_alt: [] },
+    { id: 895, french: "quotient", french_alt: [], english: "quotient", english_alt: [] },
+    { id: 896, french: "dents", french_alt: [], english: "teeth", english_alt: [] },
+    { id: 897, french: "coquille", french_alt: [], english: "shell", english_alt: [] },
+    { id: 898, french: "cou", french_alt: [], english: "neck", english_alt: [] },
+    { id: 899, french: "oxygène", french_alt: [], english: "oxygen", english_alt: [] },
+    { id: 900, french: "sucre", french_alt: [], english: "sugar", english_alt: [] },
+    { id: 901, french: "décès", french_alt: [], english: "death", english_alt: [] },
+    { id: 902, french: "assez", french_alt: [], english: "pretty", english_alt: [] },
+    { id: 903, french: "compétence", french_alt: [], english: "skill", english_alt: [] },
+    { id: 904, french: "femmes", french_alt: [], english: "women", english_alt: [] },
+    { id: 905, french: "saison", french_alt: [], english: "season", english_alt: [] },
+    { id: 906, french: "solution", french_alt: [], english: "solution", english_alt: [] },
+    { id: 907, french: "aimant", french_alt: [], english: "magnet", english_alt: [] },
+    { id: 908, french: "argent", french_alt: [], english: "silver", english_alt: ["money"] },
+    { id: 909, french: "merci", french_alt: [], english: "thank", english_alt: [] },
+    { id: 910, french: "branche", french_alt: [], english: "branch", english_alt: [] },
+    { id: 911, french: "rencontre", french_alt: [], english: "match", english_alt: [] },
+    { id: 912, french: "suffixe", french_alt: [], english: "suffix", english_alt: [] },
+    { id: 913, french: "particulièrement", french_alt: [], english: "especially", english_alt: [] },
+    { id: 914, french: "figue", french_alt: [], english: "fig", english_alt: [] },
+    { id: 915, french: "peur", french_alt: [], english: "afraid", english_alt: ["fear"] },
+    { id: 916, french: "énorme", french_alt: [], english: "huge", english_alt: [] },
+    { id: 917, french: "sœur", french_alt: [], english: "sister", english_alt: [] },
+    { id: 918, french: "acier", french_alt: [], english: "steel", english_alt: [] },
+    { id: 919, french: "discuter", french_alt: [], english: "discuss", english_alt: [] },
+    { id: 920, french: "avant", french_alt: [], english: "forward", english_alt: [] },
+    { id: 921, french: "similaire", french_alt: [], english: "similar", english_alt: [] },
+    { id: 922, french: "guider", french_alt: [], english: "guide", english_alt: [] },
+    { id: 923, french: "expérience", french_alt: [], english: "experience", english_alt: ["experiment"] },
+    { id: 924, french: "score", french_alt: [], english: "score", english_alt: [] },
+    { id: 925, french: "pomme", french_alt: [], english: "apple", english_alt: [] },
+    { id: 926, french: "acheté", french_alt: [], english: "bought", english_alt: [] },
+    { id: 927, french: "LED", french_alt: [], english: "led", english_alt: [] },
+    { id: 928, french: "pas", french_alt: [], english: "pitch", english_alt: [] },
+    { id: 929, french: "manteau", french_alt: [], english: "coat", english_alt: [] },
+    { id: 930, french: "masse", french_alt: [], english: "mass", english_alt: [] },
+    { id: 931, french: "carte", french_alt: [], english: "card", english_alt: [] },
+    { id: 932, french: "bande", french_alt: [], english: "band", english_alt: [] },
+    { id: 933, french: "corde", french_alt: [], english: "rope", english_alt: [] },
+    { id: 934, french: "glissement", french_alt: [], english: "slip", english_alt: [] },
+    { id: 935, french: "gagner", french_alt: [], english: "win", english_alt: [] },
+    { id: 936, french: "rêver", french_alt: [], english: "dream", english_alt: [] },
+    { id: 937, french: "soirée", french_alt: [], english: "evening", english_alt: [] },
+    { id: 938, french: "condition", french_alt: [], english: "condition", english_alt: [] },
+    { id: 939, french: "alimentation", french_alt: [], english: "feed", english_alt: [] },
+    { id: 940, french: "outil", french_alt: [], english: "tool", english_alt: [] },
+    { id: 941, french: "total", french_alt: [], english: "total", english_alt: [] },
+    { id: 942, french: "de base", french_alt: [], english: "basic", english_alt: [] },
+    { id: 943, french: "odeur", french_alt: [], english: "smell", english_alt: [] },
+    { id: 944, french: "vallée", french_alt: [], english: "valley", english_alt: [] },
+    { id: 945, french: "ni", french_alt: [], english: "nor", english_alt: [] },
+    { id: 946, french: "double", french_alt: [], english: "double", english_alt: [] },
+    { id: 947, french: "siège", french_alt: [], english: "seat", english_alt: [] },
+    { id: 948, french: "continuer", french_alt: [], english: "continue", english_alt: [] },
+    { id: 949, french: "bloc", french_alt: [], english: "block", english_alt: [] },
+    { id: 950, french: "graphique", french_alt: [], english: "chart", english_alt: [] },
+    { id: 951, french: "chapeau", french_alt: [], english: "hat", english_alt: [] },
+    { id: 952, french: "vendre", french_alt: [], english: "sell", english_alt: [] },
+    { id: 953, french: "succès", french_alt: [], english: "success", english_alt: [] },
+    { id: 954, french: "entreprise", french_alt: [], english: "company", english_alt: [] },
+    { id: 955, french: "soustraire", french_alt: [], english: "subtract", english_alt: [] },
+    { id: 956, french: "événement", french_alt: [], english: "event", english_alt: [] },
+    { id: 957, french: "particulier", french_alt: [], english: "particular", english_alt: [] },
+    { id: 958, french: "accord", french_alt: [], english: "deal", english_alt: [] },
+    { id: 959, french: "baignade", french_alt: [], english: "swim", english_alt: [] },
+    { id: 960, french: "terme", french_alt: [], english: "term", english_alt: [] },
+    { id: 961, french: "opposé", french_alt: [], english: "opposite", english_alt: [] },
+    { id: 962, french: "femme", french_alt: [], english: "wife", english_alt: [] },
+    { id: 963, french: "chaussure", french_alt: [], english: "shoe", english_alt: [] },
+    { id: 964, french: "épaule", french_alt: [], english: "shoulder", english_alt: [] },
+    { id: 965, french: "étaler", french_alt: [], english: "spread", english_alt: [] },
+    { id: 966, french: "organiser", french_alt: [], english: "arrange", english_alt: [] },
+    { id: 967, french: "camp", french_alt: [], english: "camp", english_alt: [] },
+    { id: 968, french: "inventer", french_alt: [], english: "invent", english_alt: [] },
+    { id: 969, french: "coton", french_alt: [], english: "cotton", english_alt: [] },
+    { id: 970, french: "né", french_alt: [], english: "born", english_alt: [] },
+    { id: 971, french: "déterminer", french_alt: [], english: "determine", english_alt: [] },
+    { id: 972, french: "quart", french_alt: [], english: "quart", english_alt: [] },
+    { id: 973, french: "neuf", french_alt: [], english: "nine", english_alt: [] },
+    { id: 974, french: "camion", french_alt: [], english: "truck", english_alt: [] },
+    { id: 975, french: "bruit", french_alt: [], english: "noise", english_alt: [] },
+    { id: 976, french: "niveau", french_alt: [], english: "level", english_alt: [] },
+    { id: 977, french: "chance", french_alt: [], english: "chance", english_alt: [] },
+    { id: 978, french: "recueillir", french_alt: [], english: "gather", english_alt: [] },
+    { id: 979, french: "boutique", french_alt: [], english: "shop", english_alt: [] },
+    { id: 980, french: "tronçon", french_alt: [], english: "stretch", english_alt: [] },
+    { id: 981, french: "jeter", french_alt: [], english: "throw", english_alt: [] },
+    { id: 982, french: "éclat", french_alt: [], english: "shine", english_alt: [] },
+    { id: 983, french: "propriété", french_alt: [], english: "property", english_alt: [] },
+    { id: 984, french: "colonne", french_alt: [], english: "column", english_alt: [] },
+    { id: 985, french: "molécule", french_alt: [], english: "molecule", english_alt: [] },
+    { id: 986, french: "sélectionner", french_alt: [], english: "select", english_alt: [] },
+    { id: 987, french: "mal", french_alt: [], english: "wrong", english_alt: [] },
+    { id: 988, french: "gris", french_alt: [], english: "gray", english_alt: [] },
+    { id: 989, french: "répéter", french_alt: [], english: "repeat", english_alt: [] },
+    { id: 990, french: "exiger", french_alt: [], english: "require", english_alt: [] },
+    { id: 991, french: "large", french_alt: [], english: "broad", english_alt: [] },
+    { id: 992, french: "préparer", french_alt: [], english: "prepare", english_alt: [] },
+    { id: 993, french: "sel", french_alt: [], english: "salt", english_alt: [] },
+    { id: 994, french: "nez", french_alt: [], english: "nose", english_alt: [] },
+    { id: 995, french: "pluriel", french_alt: [], english: "plural", english_alt: [] },
+    { id: 996, french: "colère", french_alt: [], english: "anger", english_alt: [] },
+    { id: 997, french: "revendication", french_alt: [], english: "claim", english_alt: [] },
+    { id: 998, french: "continent", french_alt: [], english: "continent", english_alt: [] }
+
+	];
+
+        const topFlag = document.getElementById('top-flag');
+        const bottomFlag = document.getElementById('bottom-flag');
+        const displayWord = document.getElementById('display-word');
+        const userInput = document.getElementById('user-input');
+        const feedbackText = document.getElementById('feedback-text');
+        const instructionText = document.getElementById('instruction-text');
+        const accentRow = document.getElementById('accent-row');
+        const scoreRightEl = document.getElementById('score-right');
+        const scoreCloseEl = document.getElementById('score-close');
+        const scoreWrongEl = document.getElementById('score-wrong');
+
+        const FLAG_FR = "https://flagcdn.com/w80/fr.png";
+        const FLAG_US = "https://flagcdn.com/w80/us.png";
+
+        let currentWordPair = null;
+        let targetWord = "";
+        let isWaitingForNext = false;
+        let countRight = 0;
+        let countClose = 0;
+        let countWrong = 0;
+        let correctWordIds = [];
+
+        function nextTurn() {
+            // Reset state
+            isWaitingForNext = false;
+            userInput.value = "";
+            userInput.readOnly = false; // Add this line
+            userInput.focus();
+            userInput.disabled = false;
+            feedbackText.textContent = "";
+            instructionText.textContent = "";
+            feedbackText.className = "";
+            
+            // Pick random word
+            do {
+                currentWordPair = vocabulary[Math.floor(Math.random() * vocabulary.length)];
+            } while (correctWordIds.includes(currentWordPair.id));   
+         
+            // Randomize direction (Top is French or Top is English)
+            const isFrenchOnTop = Math.random() < 0.5;
+
+            if (isFrenchOnTop) {
+                topFlag.src = FLAG_FR;
+                bottomFlag.src = FLAG_US;
+                displayWord.textContent = currentWordPair.french;
+                targetWord = currentWordPair.english;
+                userInput.placeholder = "Translate...";
+                accentRow.classList.add('accent-hidden');
+            } else {
+                topFlag.src = FLAG_US;
+                bottomFlag.src = FLAG_FR;
+                displayWord.textContent = currentWordPair.english;
+                targetWord = currentWordPair.french;
+                userInput.placeholder = "Traduisez...";
+                accentRow.classList.remove('accent-hidden');
+            }
+            
+            userInput.focus();
+        }
+
+        userInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                // Prevent the default browser behavior for Enter
+                e.preventDefault();
+
+                if (isWaitingForNext) {
+                    nextTurn();
+                } else if (userInput.value.trim() !== "") {
+            checkAnswer();
+                }
+            }
+	});
+
+        // Helper to strip French accents for the first rule
+        function removeAccents(str) {
+            return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        }
+
+        // Returns true if the answer meets any of your three rules for being "Close"
+        function isAnswerClose(user, target) {
+            // Rule 1: Correct letters but missing/wrong accent marks
+            if (removeAccents(user) === removeAccents(target)) {
+                return true;
+            }
+
+            const lenU = user.length;
+            const lenT = target.length;
+
+            // Rule 2: Missing exactly one letter (or has exactly one extra letter)
+            if (Math.abs(lenU - lenT) === 1) {
+                let longer = lenU > lenT ? user : target;
+                let shorter = lenU > lenT ? target : user;
+                let i = 0, j = 0, errors = 0;
+                while (i < longer.length && j < shorter.length) {
+                    if (longer[i] !== shorter[j]) {
+                        errors++;
+                        i++; // skip the missing letter in the shorter string
+                        if (errors > 1) break;
+                    } else {
+                        i++;
+                        j++;
+                    }
+                }
+                if (errors <= 1) return true;
+            }
+
+            // Rule 3: All correct letters, but two adjacent letters are reversed
+            if (lenU === lenT) {
+                let mismatches = [];
+                for (let i = 0; i < lenT; i++) {
+                    if (user[i] !== target[i]) {
+                        mismatches.push(i);
+                    }
+                }
+                // Exactly two mismatches means a single potential transposition swap
+                if (mismatches.length === 2) {
+                    const [i1, i2] = mismatches;
+                    // Verify they are right next to each other and swapping them fixes the word
+                    if (i2 - i1 === 1 && user[i1] === target[i2] && user[i2] === target[i1]) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+// Helper function to calculate Levenshtein Distance for "close" answers
+function getLevenshteinDistance(a, b) {
+    const matrix = [];
+    for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+    for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+
+    for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+            if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                matrix[i][j] = matrix[i - 1][j - 1];
+            } else {
+                matrix[i][j] = Math.min(
+                    matrix[i - 1][j - 1] + 1, // substitution
+                    matrix[i][j - 1] + 1,     // insertion
+                    matrix[i - 1][j] + 1      // deletion
+                );
+            }
+        }
+    }
+    return matrix[b.length][a.length];
+}
+
+// Helper to determine if an answer is close enough (off by 1 for short words, 2 for longer)
+function isCloseMatch(input, target) {
+    const distance = getLevenshteinDistance(input, target);
+    if (target.length <= 4) return distance <= 1;
+    return distance <= 2;
+}
+
+function checkAnswer() {
+    const answer = userInput.value.trim().toLowerCase();
+    const isShowingFrench = (topFlag.src === FLAG_FR);
+    
+    // 1. Establish the primary correct answer
+    const primaryTarget = isShowingFrench ? currentWordPair.english.toLowerCase() : currentWordPair.french.toLowerCase();
+    
+    // 2. Safely grab the alternate array, converting all elements to lowercase for matching
+    let alternates = [];
+    if (isShowingFrench && Array.isArray(currentWordPair.english_alt)) {
+        alternates = currentWordPair.english_alt.map(word => word.toLowerCase());
+    } else if (!isShowingFrench && Array.isArray(currentWordPair.french_alt)) {
+        alternates = currentWordPair.french_alt.map(word => word.toLowerCase());
+    }
+
+    // --- EVALUATION LOGIC ---
+
+    // Check for Exact Match (Primary or any value inside the alternate array)
+    const hasExactAlternateMatch = alternates.includes(answer);
+
+    if (answer === primaryTarget || hasExactAlternateMatch) {
+        feedbackText.textContent = "Correct!";
+        feedbackText.className = "correct";
+        
+        // Update Right Score
+        countRight++;
+        scoreRightEl.textContent = countRight;
+
+        correctWordIds.push(currentWordPair.id);
+        if (correctWordIds.length >= 500) {
+            correctWordIds = [];
+        }
+    } 
+    // Check for Close Match on the Primary target
+    else if (isCloseMatch(answer, primaryTarget)) {
+        feedbackText.textContent = `Close! The exact answer is: ${primaryTarget}`;
+        feedbackText.className = "close"; // Updated class to match your CSS styling color
+        
+        // Update Close Score
+        countClose++;
+        scoreCloseEl.textContent = countClose;
+    } 
+    // Check for Close Match on any item inside the alternate array
+    else {
+        // Find if there is an alternate entry that is considered a "close match"
+        const closeAlternate = alternates.find(altWord => isCloseMatch(answer, altWord));
+        
+        if (closeAlternate) {
+            feedbackText.textContent = `Close! An acceptable answer is: ${closeAlternate}`;
+            feedbackText.className = "close"; // Updated class to match your CSS styling color
+            
+            // Update Close Score
+            countClose++;
+            scoreCloseEl.textContent = countClose;
+        } 
+        // Completely Incorrect
+        else {
+            if (alternates.length > 0) {
+                feedbackText.textContent = `Sorry: that's ${primaryTarget} (or ${alternates.join(', ')})`;
+            } else {
+                feedbackText.textContent = `Sorry: that's ${primaryTarget}`;
+            }
+            feedbackText.className = "incorrect";
+            
+            // Update Wrong Score
+            countWrong++;
+            scoreWrongEl.textContent = countWrong;
+        }
+    }
+
+    instructionText.textContent = "Press Enter for the next word";
+    userInput.readOnly = true;
+    isWaitingForNext = true;
+}
+
+        document.querySelectorAll('.accent-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                userInput.value += button.textContent;
+                userInput.focus();
+            });
+        });
+
+        // Start the game
+        nextTurn();
+    </script>
+    <div id="license">
+        <a href="../../LICENSE.txt">MIT License</a>
+    </div>
+</body>
+</html>
