@@ -130,6 +130,15 @@
     line-height: 1;
   }
 
+  .card-top-right {
+    position: absolute;
+    top: 2px;
+    right: 3px;
+    font-size: var(--font-rank);
+    font-weight: bold;
+    font-family: Georgia, serif;
+  }
+
   .card-bottom-right {
     display: flex;
     flex-direction: column;
@@ -624,7 +633,6 @@ function tableauForCard(card) {
 //  AUTO-COMPLETE CHECK
 // ═══════════════════════════════════════════════════════
 function allFaceUp() {
-  if (stock.length > 0 || waste.length > 0) return false;
   for (const col of tableau) for (const c of col) if (!c.faceUp) return false;
   return true;
 }
@@ -643,9 +651,9 @@ function doAutoComplete() {
 }
 
 function runAutoComplete() {
-  // Move one card to foundation, then recurse
   let moved = false;
-  // Try waste
+
+  // Try waste first
   if (waste.length > 0) {
     const card = waste[waste.length - 1];
     const fi = foundationForCard(card);
@@ -654,6 +662,7 @@ function runAutoComplete() {
       moved = true;
     }
   }
+
   // Try tableau columns
   if (!moved) {
     for (let col = 0; col < 7 && !moved; col++) {
@@ -667,6 +676,15 @@ function runAutoComplete() {
       }
     }
   }
+
+  // If nothing moved from waste or tableau, draw from stock to waste
+  if (!moved && stock.length > 0) {
+    const card = stock.pop();
+    card.faceUp = true;
+    waste.push(card);
+    moved = true;
+  }
+
   render();
   if (checkWin()) return;
   if (moved) setTimeout(runAutoComplete, 80);
@@ -750,8 +768,19 @@ function render() {
     el.style.top = STOCK_Y + 'px';
     el.style.zIndex = 10;
     el.dataset.location = 'stock';
-    canvas.appendChild(el);
-  } else {
+
+    const count = document.createElement('div');
+    count.textContent = stock.length;
+    count.style.position = 'absolute';
+    count.style.bottom = '3px';
+    count.style.left = '4px';
+    count.style.fontSize = 'var(--font-ui-sm)';
+    count.style.fontFamily = 'Arial, sans-serif';
+    count.style.color = '#d4af37';
+    count.style.pointerEvents = 'none';
+    el.appendChild(count);
+
+    canvas.appendChild(el);  } else {
     const empty = document.createElement('div');
     empty.className = 'stock-empty';
     empty.style.left = STOCK_X + 'px';
@@ -826,7 +855,8 @@ function makeCardEl(card) {
           <div class="card-top-left ${color}">
             <span class="card-rank">${card.rank}</span>
           </div>
-          <div class="card-suit-center ${color}">${card.suit}</div>
+                     <div class="card-top-right ${color}">${card.suit}</div>
+         <div class="card-suit-center ${color}">${card.suit}</div>
         </div>`;
     }
   return el;
@@ -836,6 +866,7 @@ function makeCardEl(card) {
 //  STOCK CLICK / DRAW
 // ═══════════════════════════════════════════════════════
 function drawCard() {
+  if (animating || drag) return;
   if (stock.length === 0) return;
     saveState();
   const card = stock.pop();
@@ -845,6 +876,7 @@ function drawCard() {
 }
 
 function redeal() {
+  if (animating || drag) return;
   if (stock.length > 0) return;
     saveState();
   while (waste.length > 0) {
@@ -923,13 +955,16 @@ function animateCardMove(cards, start, destLocation, destIdx, onComplete) {
       requestAnimationFrame(step);
     } else {
       clones.forEach(c => c.remove());
+      animating = false;
       onComplete();
     }
   }
+  animating = true;
   requestAnimationFrame(step);
 }
 
 function clickMove(card, location, col, row) {
+  if (animating || drag) return;
   let srcArray, srcIdx, cards;
 
   if (location === 'waste') {
@@ -980,6 +1015,7 @@ function shakeCard(cardId) {
 //  DRAG & DROP
 // ═══════════════════════════════════════════════════════
 let drag = null; // { cards, els, srcLocation, srcCol, srcRow, startX, startY, offsetX, offsetY }
+let animating = false;
 
 function getClientXY(e) {
   if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -997,6 +1033,7 @@ function getCanvasRect() {
 
 function startDrag(e, card, location, col, row, el) {
   e.preventDefault();
+  if (drag || animating) return;
   const { x, y } = getClientXY(e);
   const rect = getCanvasRect();
   const zoom = getZoom();
@@ -1036,6 +1073,7 @@ function startDrag(e, card, location, col, row, el) {
     offsetY: (y - elRect.top)  / zoom,
     startX: x,
     startY: y,
+    isTouch: e.type === 'touchstart',
     hasMoved: false,
     originCard: card
   };
@@ -1072,7 +1110,8 @@ function endDrag(e) {
   const canvasX = (x - rect.left) / zoom;
   const canvasY = (y - rect.top)  / zoom;
 
-  const moved = Math.abs(x - drag.startX) > 4 || Math.abs(y - drag.startY) > 4;
+  const threshold = drag.isTouch ? 10 : 4;
+    const moved = Math.abs(x - drag.startX) > threshold || Math.abs(y - drag.startY) > threshold;
 
   // Remove ghost els
   drag.els.forEach(el => el.remove());
@@ -1299,7 +1338,7 @@ function applyScale() {
   document.documentElement.style.setProperty('--font-ui-h2',  (20 * fontScale) + 'px');
   document.documentElement.style.setProperty('--font-ui-h1',  (30 * fontScale) + 'px');
   document.documentElement.style.setProperty('--font-ui-btn', (16 * fontScale) + 'px');
-  document.documentElement.style.setProperty('--font-stock',  (28 * fontScale) + 'px');
+  document.documentElement.style.setProperty('--font-stock',  (36 * fontScale) + 'px');
   document.documentElement.style.setProperty('--font-bounce', (26 * fontScale) + 'px');
   document.documentElement.style.setProperty('--font-debug',  (11 * fontScale) + 'px');
 }
