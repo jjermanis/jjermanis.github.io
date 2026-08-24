@@ -429,6 +429,23 @@
     100% { transform: translateY(750px); opacity: 0; }
   }
 
+  /* License MIT used in this file */
+  #license {
+      position: fixed;
+      bottom: 5px;
+      right: 10px;
+      font-size: 11px;
+      opacity: 0.5;
+  }
+  #license a {
+      color: #aaaaaa;
+      text-decoration: none;
+  }
+  #license a:hover {
+      text-decoration: underline;
+  }  
+  /* License */
+
 </style>
 </head>
 <body>
@@ -894,7 +911,13 @@ function drawCard() {
 function redeal() {
   if (animating || drag) return;
   if (stock.length > 0) return;
-    saveState();
+    
+  const now = Date.now();
+  if (now - lastDrawTime < 250) return;
+  lastDrawTime = now;
+
+  saveState();
+
   while (waste.length > 0) {
     const card = waste.pop();
     card.faceUp = false;
@@ -1366,5 +1389,10 @@ window.addEventListener('resize', applyScale);
 applyScale();
 newGame();
 </script>
+
+<div id="license">
+    <a href="../../LICENSE.txt">MIT License</a>
+</div>
+
 </body>
 </html>
