@@ -1,0 +1,1746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>King Messenger</title>
+<link rel="icon" type="image/png" href="castle_favicon.png">
+
+<style>
+body{
+    margin:0;
+    background:#202020;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+    overflow:hidden;
+}
+
+canvas{
+    width:512px;
+    height:480px;
+    image-rendering:pixelated;
+    image-rendering:crisp-edges;
+    border:4px solid white;
+}
+</style>
+</head>
+
+<body>
+
+<canvas id="game" width="256" height="240"></canvas>
+
+<script src="music.js"></script>
+
+<script>
+
+const SCREEN_WIDTH=256;
+const SCREEN_HEIGHT=240;
+const MIT_LICENSE_URL = "LICENSE.txt";
+
+const TILE_SIZE=16;
+
+const TILE = {
+    GRASS: 0,
+    ROAD: 1,
+    TREE: 2,
+    WATER: 3,
+    BRIDGE: 4,
+    CASTLE: 5,
+    VILLAGE: 6
+};
+
+const TILE_SOLID = {
+    [TILE.GRASS]: false,
+    [TILE.ROAD]: false,
+    [TILE.TREE]: true,
+    [TILE.WATER]: true,
+    [TILE.BRIDGE]: false,
+    [TILE.CASTLE]: false,
+    [TILE.VILLAGE]: false
+};
+
+const TILE_COLLISION = {
+
+    [TILE.GRASS]:   null,
+    [TILE.ROAD]:    null,
+    [TILE.WATER]:   null,
+    [TILE.BRIDGE]:  null,
+    [TILE.CASTLE]:  null,
+    [TILE.VILLAGE]: null,
+
+    // trunk only
+    [TILE.TREE]:{
+        x:4,
+        y:6,
+        w:8,
+        h:9
+    }
+
+};
+
+const LEVEL_FILES = [
+    "Level1.json",
+    "Level2.json",
+    "Level3.json",
+    "Level4.json"
+];
+
+const MUSIC_FILES = [
+    "Song1.json",
+    "Song2.json",
+    "Song3.json"
+];
+
+const MUSIC_FOR_LEVEL = [
+    0, 
+    1,
+    0,
+    2
+];
+
+const PLAYER_RIGHT_STAND = [
+
+".....GGGGG......",
+"....GGGGGGGG....",
+"....GGGGGGRRR...",
+"...GGGGGRRSSSG..",
+"..GG.GRRSRSKS...",
+"......RRRSSSSS..",
+".....BBBBSSSS...",
+"....BBSSTBSB....",
+"....BBSBTTBTTT..",
+"....BBSBTTTTTS..",
+"....BBSSRRSRRS..",
+"....BBBSTTTTTS..",
+"....BBBBTTTTT...",
+"....BB.RRTTRR...",
+"......RR...RR...",
+"......RRR..RRR.."
+
+];
+
+const PLAYER_RIGHT_RUN1 = [  
+
+".....GGGGG......",
+"....GGGGGGGG....",
+"....GGGGGGRRR...",
+"...GGGGGRRSSSG..",
+"..GG.GRRSRSKS...",
+"......RRRSSSSS..",
+".....BBBBSSSS...",
+"....BBSSTBSBB...",
+"....BBSBTTBTTT..",
+"....BBSBTTTTTS..",
+"....BBSSRRSRRS..",
+"....BBBBTTTT....",
+"....BBB.TTT.....",
+"....BB.RRTTRR...",
+"......R...RR....",
+".....RRR...RRR.."
+
+];
+
+const PLAYER_RIGHT_RUN2 = [
+
+".....GGGGG......",
+"....GGGGGGGG....",
+"....GGGGGGRRR...",
+"...GGGGGRRSSSG..",
+"..GG.GRRSRSKS...",
+"......RRRSSSSS..",
+".....BBBBSSSS...",
+"....BBBSTBSB....",
+"....BBSBTTBTTT..",
+"....BBSBTTTTTS..",
+"....BBSSRRSRRS..",
+"....BBBBTTTT....",
+".....BBBTTT.....",
+"....BBRRT.RR....",
+".....RR....R....",
+"....RRR....RRR.."
+
+];
+
+const PLAYER_PALETTE = {
+
+    K:"#000000",
+    S:"#F8B800",
+    G:"#0000BC",
+    T:"#D8A060",
+    B:"#0058F8",
+    R:"#7C3C00"
+
+};
+
+const WOLF_RUN1 = [
+
+"................",
+"...........KK...",
+"...KKKKKKKKLLK..",
+"..KDDDDDDDDLLLLK",
+".KKDDDDDDDDDLLK.",
+"...KDDDDDDDDDK..",
+"..KDDD..DD..D...",
+"..DD.KK....KDD.."
+
+];
+
+const WOLF_RUN2 = [
+
+"................",
+"...........KK...",
+"...KKKKKKKKLLK..",
+"..KDDDDDDDDLLLLK",
+".KKDDDDDDDDDLLK.",
+"...KDDDDDDDDDK..",
+"..K.D..DD..DD...",
+"..DD..KK..KK.D.."
+
+];
+
+const WOLF_PALETTE = {
+
+    K:"#101010",
+    D:"#707070",
+    L:"#E0E0E0"
+
+};
+
+const BANDIT_RUN1 = [
+
+"......HHHH......",
+"....HHHHHHHH....",
+"...HHEEHHEEHH...",
+"...HHEEHHEEHH...",
+"...HHHHHHHHHH...",
+"...HHHHHHHHHH...",
+".TTTHTTHTTHTTTT.",
+".TTTTTTTTTTTTTT.",
+".TT.TTTTTTTT.TT.",
+".TT.TTTTTTTT.TT.",
+"..TTTTTTTTTT.TT.",
+"...TTPPPPPPP.TT.",
+"....PPP..PPP....",
+"....PPP...BBB...",
+"....BBB.........",
+"....BBB........."
+
+];
+
+const BANDIT_RUN2 = [
+
+"......HHHH......",
+"....HHHHHHHH....",
+"...HHEEHHEEHH...",
+"...HHEEHHEEHH...",
+"...HHHHHHHHHH...",
+"...HHHHHHHHHH...",
+".TTTHTTHTTHTTTT.",
+".TTTTTTTTTTTTTT.",
+".TT.TTTTTTTT.TT.",
+".TT.TTTTTTTT.TT.",
+".TT.TTTTTTTTTT..",
+".TT.PPPPPPPTT...",
+"....PPP..PPP....",
+"...BBB...PPP....",
+".........BBB....",
+".........BBB...."
+
+];
+
+const BANDIT_PALETTE = {
+
+    '.': null,
+    E:"#000000",   // Black
+    H:"#989698",   // Hood
+    T:"#287200",   // Tunic
+    P:"#783C00",   // Pants
+    B:"#3C1800"    // Boots
+
+};
+
+let currentLevel = 0;
+let currentLevelName = "";
+
+let playerFacingRight = true;
+
+let MAP_WIDTH=40;
+let MAP_HEIGHT=30;
+
+const LEVEL_TIME = 200;
+const STARTING_LIVES = 2;
+
+const PLAYER_RIGHT = [
+
+    buildSprite(PLAYER_RIGHT_STAND, PLAYER_PALETTE),
+    buildSprite(PLAYER_RIGHT_RUN1, PLAYER_PALETTE),
+    buildSprite(PLAYER_RIGHT_STAND, PLAYER_PALETTE),
+    buildSprite(PLAYER_RIGHT_RUN2, PLAYER_PALETTE)
+
+];
+
+const PLAYER_LEFT =
+    PLAYER_RIGHT.map(sprite => mirrorSprite(sprite));
+
+let playerAnimationFrame = 0;
+let lastPlayerAnimationTime = 0;
+
+let PLAYER_START_X = 0;
+let PLAYER_START_Y = 0;
+
+const WOLF_SPEED = 2;
+
+const WOLF_RIGHT = [
+
+    buildSprite(WOLF_RUN1, WOLF_PALETTE),
+    buildSprite(WOLF_RUN2, WOLF_PALETTE)
+
+];
+
+const WOLF_LEFT =
+    WOLF_RIGHT.map(sprite => mirrorSprite(sprite));
+
+let wolfAnimationFrame = 0;
+let lastWolfAnimationTime = 0;
+
+const BANDIT = [
+
+    buildSprite(BANDIT_RUN1, BANDIT_PALETTE),
+    buildSprite(BANDIT_RUN2, BANDIT_PALETTE)
+
+];
+
+let banditAnimationFrame = 0;
+let lastBanditAnimationTime = 0;
+
+const BANDIT_SPEED = 1;
+const BANDIT_DETECTION_RANGE = 64;
+const BANDIT_CHASE_DISTANCE = 128;
+
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+
+const titleLogo = new Image();
+titleLogo.src = "title.png";
+
+const winLogo = new Image();
+winLogo.src = "win.png";
+
+ctx.imageSmoothingEnabled=false;
+
+const State={
+    TITLE:0,
+    MISSION_INTRO:1,
+    PLAY:2,
+    PAUSE:3,
+    WIN:4,
+    GAME_OVER:5,
+    END_OF_LIFE:6
+};
+
+const ENEMY={
+
+    WOLF:0,
+    BANDIT:1
+
+};
+
+const BanditState = {
+
+    PATROL:0,
+    CHASE:1,
+    RETURN:2
+
+};
+
+let gameState=State.TITLE;
+let lastTimerTick = 0;
+let missionIntroStartTime = 0;
+let pauseStartTime = 0;
+let gameOverStartTime = 0;
+let endOfLifeStartTime = 0;
+let endOfLifeMusicStartTime = 0;
+
+const keys={};
+
+document.addEventListener("keydown",(e)=>{
+    keys[e.key]=true;
+
+    if(gameState===State.TITLE && e.key==="Enter"){
+        startNewGame();
+    }
+
+    if(gameState===State.WIN && e.key==="Enter"){
+        gameState = State.TITLE;
+    }
+
+    if(e.key==="p" || e.key==="P"){
+
+        if(gameState===State.PLAY){
+
+            pauseStartTime = performance.now();
+            gameState = State.PAUSE;
+
+        }
+        else if(gameState===State.PAUSE){
+
+            gameState = State.PLAY;
+
+            // Prevent the timer from "catching up"
+            lastTimerTick += performance.now() - pauseStartTime;
+
+        }
+
+    }
+
+});
+
+canvas.addEventListener("click", (e) => {
+
+    if(gameState !== State.TITLE)
+        return;
+
+    const rect = canvas.getBoundingClientRect();
+
+    const x = (e.clientX - rect.left) *
+              (canvas.width / rect.width);
+
+    const y = (e.clientY - rect.top) *
+              (canvas.height / rect.height);
+
+    // MIT LICENSE occupies this area on the title screen
+    if(x >= 80 && x <= 176 &&
+       y >= 198 && y <= 220){
+
+        window.open(MIT_LICENSE_URL, "_blank");
+
+    }
+
+});
+
+async function startNewGame(){
+
+    currentLevel = 0;
+
+    await loadLevel(LEVEL_FILES[0]);
+
+    resetPositions();
+
+    player.remainingLives = STARTING_LIVES;
+    player.timeRemaining = LEVEL_TIME;
+
+    startCurrentLevelMusic();
+
+    missionIntroStartTime  = performance.now();
+
+    gameState = State.MISSION_INTRO;
+
+}
+
+document.addEventListener("keyup",(e)=>{
+    keys[e.key]=false;
+});
+
+const map=[];
+
+const music=[];
+let endOfLifeMusic = null;
+
+async function loadLevel(levelFile){
+
+    try{
+
+        const response =
+            await fetch(levelFile,
+            {
+                cache: "no-store"
+            }
+        );
+
+        if(!response.ok){
+
+            throw new Error();
+
+        }
+
+        const level =
+            await response.json();
+
+        MAP_WIDTH = level.width;
+        MAP_HEIGHT = level.height;
+
+	currentLevelName = level.name;
+
+        PLAYER_START_X =
+            level.playerStart.x * TILE_SIZE;
+
+        PLAYER_START_Y =
+            level.playerStart.y * TILE_SIZE;
+
+        map.length = 0;
+
+        for(let y=0;y<MAP_HEIGHT;y++){
+
+            map.push(
+                level.tiles[y].slice()
+            );
+
+        }
+
+enemies.length = 0;
+
+for(const e of level.enemies){
+
+    enemies.push({
+
+        type: e.type,
+
+        startX: e.x * TILE_SIZE,
+        startY: e.y * TILE_SIZE,
+
+        x: e.x * TILE_SIZE,
+        y: e.y * TILE_SIZE,
+
+        width: 8,
+        height: 8,
+
+        direction: -1,
+
+        speed:
+            e.type == 0 ?
+                WOLF_SPEED :
+                BANDIT_SPEED,
+
+        patrolAxis: "horizontal",
+
+        state: BanditState.PATROL
+
+    });
+
+}
+
+    }
+    catch(error){
+
+        alert(
+            "Unable to load " + levelFile
+        );
+
+        throw error;
+
+    }
+
+}
+
+async function loadMusic(musicFile){
+
+    try{
+
+        const response =
+            await fetch(musicFile,
+            {
+                cache: "no-store"
+            }
+        );
+
+        if(!response.ok){
+            throw new Error();
+        }
+
+        const song =
+            await response.json();
+
+        music.push(song);
+
+    }
+    catch(error){
+
+        alert(
+            "Unable to load " + musicFile
+        );
+
+        throw error;
+
+    }
+}
+
+
+
+
+
+
+function startCurrentLevelMusic(){
+
+    if(music.length === 0)
+        return;
+
+    const musicIndex = MUSIC_FOR_LEVEL[currentLevel];
+
+    startMusic(music[musicIndex]);
+}
+
+const player = {
+
+    x: PLAYER_START_X,
+    y: PLAYER_START_Y,
+
+    width:8,
+    height:8,
+
+    speed:1,
+
+    remainingLives:STARTING_LIVES,
+
+    timeRemaining:LEVEL_TIME
+};
+
+const enemies = [];
+
+async function nextLevel(){
+
+    currentLevel++;
+
+    await loadLevel(LEVEL_FILES[currentLevel]);
+
+    resetPositions();
+
+    startCurrentLevelMusic();
+
+    missionIntroStartTime  = performance.now();
+
+    gameState = State.MISSION_INTRO;
+
+}
+
+function buildSprite(sprite, palette){
+
+    const canvas = document.createElement("canvas");
+
+    canvas.width = sprite[0].length;
+    canvas.height = sprite.length;
+
+    const c = canvas.getContext("2d");
+
+    c.imageSmoothingEnabled = false;
+
+    for(let y=0;y<sprite.length;y++){
+
+        const row = sprite[y];
+
+        for(let x=0;x<row.length;x++){
+
+            const pixel = row[x];
+
+            if(pixel==".")
+                continue;
+
+            c.fillStyle = palette[pixel];
+            c.fillRect(x,y,1,1);
+
+        }
+
+    }
+
+    return canvas;
+
+}
+
+function mirrorSprite(sprite){
+
+    const canvas = document.createElement("canvas");
+
+    canvas.width = sprite.width;
+    canvas.height = sprite.height;
+
+    const c = canvas.getContext("2d");
+
+    c.imageSmoothingEnabled = false;
+
+    c.translate(sprite.width, 0);
+    c.scale(-1, 1);
+
+    c.drawImage(sprite, 0, 0);
+
+    return canvas;
+
+}
+
+function drawGrass(x,y){
+
+    ctx.fillStyle="#4CAF50";
+    ctx.fillRect(x,y,TILE_SIZE,TILE_SIZE);
+
+}
+
+function drawRoad(x,y){
+
+    ctx.fillStyle="#B09060";
+    ctx.fillRect(x,y,TILE_SIZE,TILE_SIZE);
+
+    ctx.fillStyle="#C8A878";
+
+    ctx.fillRect(x+2,y+4,12,1);
+    ctx.fillRect(x+2,y+8,12,1);
+    ctx.fillRect(x+2,y+12,12,1);
+
+}
+
+function drawTree(x,y){
+
+    ctx.fillStyle="#3CB043";
+    ctx.fillRect(x,y,TILE_SIZE,TILE_SIZE);
+
+    ctx.fillStyle="#6B3E1F";
+    ctx.fillRect(x+6,y+9,4,7);
+
+    ctx.fillStyle="#0B7A20";
+    ctx.fillRect(x+2,y+1,12,10);
+
+}
+
+function drawWater(x,y){
+
+    ctx.fillStyle="#2080FF";
+    ctx.fillRect(x,y,TILE_SIZE,TILE_SIZE);
+
+    ctx.fillStyle="#40A0FF";
+
+    ctx.fillRect(x+2,y+4,12,1);
+    ctx.fillRect(x+1,y+8,10,1);
+    ctx.fillRect(x+4,y+12,8,1);
+
+}
+
+function drawBridge(x, y){
+
+    // Wooden deck
+
+    ctx.fillStyle = "#8B5A2B";
+    ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+
+    // Side rails
+
+    ctx.fillStyle = "#5A3515";
+
+    ctx.fillRect(x, 0 + y, TILE_SIZE, 2);
+    ctx.fillRect(x, y + 14, TILE_SIZE, 2);
+
+    // Planks
+
+    ctx.fillStyle = "#C09050";
+
+    ctx.fillRect(x + 2, y + 4, 12, 1);
+    ctx.fillRect(x + 2, y + 8, 12, 1);
+    ctx.fillRect(x + 2, y + 12, 12, 1);
+
+}
+
+function drawCastle(x,y){
+
+    ctx.fillStyle = "#3CB043";
+    ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+
+    ctx.fillStyle="#909090";
+    ctx.fillRect(x+2,y+4,12,12);
+
+    ctx.fillStyle="#707070";
+    ctx.fillRect(x,y+8,4,8);
+    ctx.fillRect(x+12,y+8,4,8);
+
+    ctx.fillStyle="#404040";
+    ctx.fillRect(x+6,y+10,4,6);
+
+}
+
+function drawVillage(x,y){
+
+    ctx.fillStyle = "#3CB043";
+    ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+
+    ctx.fillStyle="#8B5A2B";
+    ctx.fillRect(x+4,y+8,8,8);
+
+    ctx.fillStyle="#AA2020";
+
+    ctx.beginPath();
+    ctx.moveTo(x+2,y+8);
+    ctx.lineTo(x+8,y+2);
+    ctx.lineTo(x+14,y+8);
+    ctx.fill();
+
+}
+
+function drawPlayer(){
+
+    const px =
+        Math.floor(player.x) - camera.renderX;
+
+    const py =
+        Math.floor(player.y) - camera.renderY;
+
+    const sprites =
+        playerFacingRight ?
+            PLAYER_RIGHT :
+            PLAYER_LEFT;
+
+    ctx.drawImage(
+
+        sprites[playerAnimationFrame],
+
+        px,
+        py
+
+    );
+
+}
+
+function drawWolf(enemy){
+
+    const x = Math.floor(enemy.x) - camera.renderX;
+    const y = Math.floor(enemy.y) - camera.renderY;
+
+    const sprites =
+        enemy.direction < 0 ?
+            WOLF_LEFT :
+            WOLF_RIGHT;
+
+    ctx.drawImage(
+
+        sprites[wolfAnimationFrame],
+
+        x,
+        y + 6
+
+    );
+
+}
+
+function drawBandit(enemy){
+
+    const x = Math.floor(enemy.x) - camera.renderX;
+    const y = Math.floor(enemy.y) - camera.renderY;
+
+    ctx.drawImage(
+
+        BANDIT[banditAnimationFrame],
+
+        x,
+        y
+
+    );
+
+}
+
+const camera={
+    x:0,
+    y:0,
+    renderX:0,
+    renderY:0
+};
+
+function rectsOverlap(ax, ay, aw, ah,
+                      bx, by, bw, bh){
+
+    return (
+        ax < bx + bw &&
+        ax + aw > bx &&
+        ay < by + bh &&
+        ay + ah > by
+    );
+
+}
+
+function collidesWithWorld(
+    px,
+    py,
+    offsetX,
+    offsetY,
+    width,
+    height)
+{
+
+    const left = px + offsetX;
+    const top = py + offsetY;
+
+    const startTileX = Math.floor(left / TILE_SIZE);
+    const startTileY = Math.floor(top / TILE_SIZE);
+
+    const endTileX =
+        Math.floor((left + width - 1) / TILE_SIZE);
+
+    const endTileY =
+        Math.floor((top + height - 1) / TILE_SIZE);
+
+    for(let ty = startTileY; ty <= endTileY; ty++){
+
+        for(let tx = startTileX; tx <= endTileX; tx++){
+
+            if(tx < 0 || ty < 0 ||
+               tx >= MAP_WIDTH ||
+               ty >= MAP_HEIGHT)
+                return true;
+
+            const tile = map[ty][tx];
+
+            if(TILE_SOLID[tile]){
+
+                if(tile != TILE.TREE)
+                    return true;
+
+            }
+
+            const shape = TILE_COLLISION[tile];
+
+            if(shape == null)
+                continue;
+
+            if(rectsOverlap(
+
+                left,
+                top,
+                width,
+                height,
+
+                tx * TILE_SIZE + shape.x,
+                ty * TILE_SIZE + shape.y,
+                shape.w,
+                shape.h
+
+            )){
+
+                return true;
+
+            }
+
+        }
+
+    }
+
+    return false;
+
+}
+
+function distanceSquared(x1,y1,x2,y2){
+
+    const dx=x2-x1;
+    const dy=y2-y1;
+
+    return dx*dx+dy*dy;
+
+}
+
+function moveBandit(enemy, dx, dy){
+
+    let nextX = enemy.x + dx;
+    let nextY = enemy.y + dy;
+
+    if(collidesWithWorld(
+        nextX,
+        nextY,
+        3, 8,
+        10, 8))
+        return false;
+
+    enemy.x = nextX;
+    enemy.y = nextY;
+
+    return true;
+
+}
+
+
+
+function updateWolf(enemy){
+
+    let nextX = enemy.x + enemy.direction * enemy.speed;
+
+    if(collidesWithWorld(
+        nextX,
+        enemy.y,
+        2, 4,
+        12, 6)) {
+        enemy.direction *= -1;
+
+    }
+    else{
+
+        enemy.x = nextX;
+
+    }
+
+}
+
+function moveBanditToward(enemy, targetX, targetY){
+
+    const dx = targetX - enemy.x;
+    const dy = targetY - enemy.y;
+
+    const moveX = Math.sign(dx) * enemy.speed;
+    const moveY = Math.sign(dy) * enemy.speed;
+
+    if(Math.abs(dx) >= Math.abs(dy)){
+
+        if(!moveBandit(enemy, moveX, 0)){
+            moveBandit(enemy, 0, moveY);
+        }
+
+    }
+    else{
+
+        if(!moveBandit(enemy, 0, moveY)){
+            moveBandit(enemy, moveX, 0);
+        }
+
+    }
+}
+
+function updateBandit(enemy){
+
+    switch(enemy.state){
+
+        case BanditState.PATROL:
+
+            if(collidesWithWorld(
+                enemy.x + enemy.direction * enemy.speed,
+                enemy.y,
+                3, 8,
+                10, 8))
+            {
+                enemy.direction*=-1;
+            }
+            else{
+
+                enemy.x +=
+                    enemy.direction*enemy.speed;
+
+            }
+
+            if(
+                distanceSquared(
+
+                    player.x,
+                    player.y,
+
+                    enemy.x,
+                    enemy.y
+
+                )
+
+                <
+
+                BANDIT_DETECTION_RANGE*
+                BANDIT_DETECTION_RANGE
+
+            ){
+
+                enemy.state =
+                    BanditState.CHASE;
+
+            }
+
+            break;
+
+        case BanditState.CHASE: {
+
+            moveBanditToward(
+                enemy,
+                player.x,
+                player.y
+            );
+
+            if(distanceSquared( enemy.startX, enemy.startY, enemy.x, enemy.y ) >
+                (BANDIT_CHASE_DISTANCE * BANDIT_CHASE_DISTANCE)) {
+                enemy.state = BanditState.RETURN;
+            }
+            break;
+        }
+        case BanditState.RETURN: {
+
+            moveBanditToward(
+                enemy,
+                enemy.startX,
+                enemy.startY
+            );
+
+            if(Math.abs(enemy.startX - enemy.x) < enemy.speed &&
+               Math.abs(enemy.startY - enemy.y) < enemy.speed){
+
+                enemy.x = enemy.startX;
+                enemy.y = enemy.startY;
+
+                enemy.state = BanditState.PATROL;
+            }
+
+            break;    
+        }
+    }
+}
+
+function playerHitsEnemy(enemy){
+
+    return rectsOverlap(
+
+        player.x + 4,
+        player.y + 4,
+        player.width,
+        player.height,
+
+        enemy.x + 4,
+        enemy.y + 4,
+        enemy.width,
+        enemy.height
+
+    );
+
+}
+
+function loseLife(){
+
+    stopMusic();
+
+    player.remainingLives--;
+
+    endOfLifeStartTime = performance.now();
+    endOfLifeMusicPlaying = false;
+
+    gameState = State.END_OF_LIFE;
+}
+
+function resetPositions(){
+
+    player.x = PLAYER_START_X;
+    player.y = PLAYER_START_Y;
+
+    playerFacingRight = true;
+    playerAnimationFrame = 0;
+    lastPlayerAnimationTime = performance.now();
+
+    wolfAnimationFrame = 0;
+    lastWolfAnimationTime = performance.now();
+
+    banditAnimationFrame = 0;
+    lastBanditAnimationTime = performance.now();
+
+camera.x = player.x - SCREEN_WIDTH / 2;
+camera.y = player.y - SCREEN_HEIGHT / 2;
+
+if(camera.x < 0) camera.x = 0;
+if(camera.y < 0) camera.y = 0;
+
+const maxCamX = MAP_WIDTH * TILE_SIZE - SCREEN_WIDTH;
+const maxCamY = MAP_HEIGHT * TILE_SIZE - SCREEN_HEIGHT;
+
+if(camera.x > maxCamX) camera.x = maxCamX;
+if(camera.y > maxCamY) camera.y = maxCamY;
+
+camera.renderX = Math.floor(camera.x);
+camera.renderY = Math.floor(camera.y);
+
+for(const enemy of enemies){
+
+    enemy.x = enemy.startX;
+    enemy.y = enemy.startY;
+
+    enemy.direction = -1;
+    enemy.state = BanditState.PATROL;
+
+}
+
+    player.timeRemaining = LEVEL_TIME;
+    lastTimerTick = performance.now();
+}
+
+function playerOnTile(tileType){
+
+    const tileX = Math.floor((player.x + 8) / TILE_SIZE);
+    const tileY = Math.floor((player.y + 8) / TILE_SIZE);
+
+    if(
+        tileX < 0 ||
+        tileX >= MAP_WIDTH ||
+        tileY < 0 ||
+        tileY >= MAP_HEIGHT
+    ){
+        return false;
+    }
+
+    return map[tileY][tileX] === tileType;
+}
+
+async function update(){
+
+if(gameState === State.GAME_OVER){
+
+    if(performance.now() - gameOverStartTime >= 4000){
+
+        gameState = State.TITLE;
+
+        player.remainingLives = STARTING_LIVES;
+        player.timeRemaining = LEVEL_TIME;
+
+        resetPositions();
+
+    }
+
+    return;
+
+}
+
+if(gameState === State.END_OF_LIFE){
+
+    const elapsed =
+        performance.now() - endOfLifeStartTime;
+
+    if(elapsed >= 250 && endOfLifeMusic !== null){
+
+        if(!endOfLifeMusicPlaying){
+
+            startMusic(endOfLifeMusic);
+            endOfLifeMusicPlaying = true;
+
+        }
+
+    }
+
+    if(elapsed >= 1500){
+
+        stopMusic();
+
+        if(player.remainingLives < 0){
+
+            gameState = State.GAME_OVER;
+            gameOverStartTime = performance.now();
+
+        }
+        else{
+
+            resetPositions();
+
+            startCurrentLevelMusic();
+
+            gameState = State.PLAY;
+
+        }
+
+    }
+
+    return;
+}
+
+if(gameState == State.MISSION_INTRO){
+
+    if(performance.now() - missionIntroStartTime >= 2000){
+
+        lastTimerTick = performance.now();
+
+        gameState = State.PLAY;
+
+    }
+
+    return;
+
+}
+
+    if(gameState!==State.PLAY) return;
+
+const now = performance.now();
+
+if(now - lastTimerTick >= 1000){
+
+    player.timeRemaining--;
+
+    lastTimerTick += 1000;
+
+    if(player.timeRemaining <= 0){
+
+        loseLife();
+        return;
+
+    }
+
+}
+
+if(now - lastWolfAnimationTime >= 120){
+
+    wolfAnimationFrame++;
+
+    if(wolfAnimationFrame >= WOLF_RIGHT.length)
+        wolfAnimationFrame = 0;
+
+    lastWolfAnimationTime = now;
+
+}
+
+if(now - lastBanditAnimationTime >= 150){
+
+    banditAnimationFrame++;
+
+    if(banditAnimationFrame >= BANDIT.length)
+        banditAnimationFrame = 0;
+
+    lastBanditAnimationTime = now;
+
+}
+
+let dx = 0;
+let dy = 0;
+
+if(keys["ArrowLeft"])  {
+    dx = -player.speed;
+    playerFacingRight = false;
+}
+if(keys["ArrowRight"]) {
+    dx =  player.speed;
+    playerFacingRight = true;
+}
+if(keys["ArrowUp"])    dy = -player.speed;
+if(keys["ArrowDown"])  dy =  player.speed;
+
+const playerMoving = (dx != 0 || dy != 0);
+
+// Horizontal movement
+
+let nextX = player.x + dx;
+
+if(!collidesWithWorld(
+    nextX,
+    player.y,
+    3, 8,
+    10, 8)){
+    player.x = nextX;
+
+}
+
+// Vertical movement
+
+let nextY = player.y + dy;
+
+if(!collidesWithWorld(
+    player.x,
+    nextY,
+    3, 8,
+    10, 8)){
+    player.y = nextY;
+
+}
+
+    if(player.x<0) player.x=0;
+    if(player.y<TILE_SIZE) player.y=TILE_SIZE;
+
+    if(player.x>MAP_WIDTH*TILE_SIZE-TILE_SIZE)
+        player.x=MAP_WIDTH*TILE_SIZE-TILE_SIZE;
+
+    if(player.y>MAP_HEIGHT*TILE_SIZE-TILE_SIZE)
+        player.y=MAP_HEIGHT*TILE_SIZE-TILE_SIZE;
+
+    camera.x=player.x-SCREEN_WIDTH/2;
+    camera.y=player.y-SCREEN_HEIGHT/2;
+
+    if(camera.x<0) camera.x=0;
+    if(camera.y<0) camera.y=0;
+
+for(const enemy of enemies){
+
+    if(enemy.type == ENEMY.WOLF){
+
+        updateWolf(enemy);
+
+    }
+    else{
+
+        updateBandit(enemy);
+
+    }
+
+}
+
+for(const enemy of enemies){
+
+    if(playerHitsEnemy(enemy)){
+
+        loseLife();
+        break;
+
+    }
+
+}
+
+if(playerMoving){
+
+    if(now - lastPlayerAnimationTime >= 120){
+
+        playerAnimationFrame++;
+
+        if(playerAnimationFrame >= PLAYER_RIGHT.length)
+            playerAnimationFrame = 0;
+
+        lastPlayerAnimationTime = now;
+
+    }
+
+}
+else{
+
+    playerAnimationFrame = 0;
+
+}
+
+    const maxCamX=MAP_WIDTH*TILE_SIZE-SCREEN_WIDTH;
+    const maxCamY=MAP_HEIGHT*TILE_SIZE-SCREEN_HEIGHT;
+
+    if(camera.x>maxCamX) camera.x=maxCamX;
+    if(camera.y>maxCamY) camera.y=maxCamY;
+
+    camera.renderX = Math.floor(camera.x);
+    camera.renderY = Math.floor(camera.y);
+
+    const playerCenterX = player.x + 8;
+    const playerCenterY = player.y + 8;
+
+    const tileX = Math.floor(playerCenterX / TILE_SIZE);
+    const tileY = Math.floor(playerCenterY / TILE_SIZE);
+
+    if(playerOnTile(TILE.CASTLE)){
+
+        stopMusic();
+
+        if(currentLevel < LEVEL_FILES.length - 1){
+
+            await nextLevel();
+
+        }
+        else{
+
+            gameState = State.WIN;
+
+        }
+
+    }
+
+}
+
+function drawMap(){
+
+    let startX=Math.floor(camera.renderX/TILE_SIZE);
+    let startY=Math.floor(camera.renderY/TILE_SIZE);
+
+    let endX=startX+17;
+    let endY=startY+16;
+
+    for(let y=startY;y<=endY;y++){
+
+        for(let x=startX;x<=endX;x++){
+
+            if(x<0||y<0||x>=MAP_WIDTH||y>=MAP_HEIGHT)
+                continue;
+
+            const tile=map[y][x];
+
+            const sx = x*TILE_SIZE - camera.renderX;
+            const sy = y*TILE_SIZE - camera.renderY;
+
+            switch(tile){
+
+                case TILE.GRASS:
+                    drawGrass(sx,sy);
+                    break;
+
+                case TILE.ROAD:
+                    drawRoad(sx,sy);
+                    break;
+
+                case TILE.TREE:
+                    drawTree(sx,sy);
+                    break;
+
+                case TILE.WATER:
+                    drawWater(sx,sy);
+                    break;
+
+                case TILE.BRIDGE:
+                    drawBridge(sx,sy);
+                    break;
+
+                case TILE.CASTLE:
+                    drawCastle(sx,sy);
+                    break;
+
+                case TILE.VILLAGE:
+                    drawVillage(sx,sy);
+                    break;
+
+            }
+
+        }
+
+    }
+
+}
+
+function drawHUD(){
+
+    let livesToDisplay = player.remainingLives;
+
+    if(gameState === State.END_OF_LIFE){
+        livesToDisplay++;
+    }
+
+    ctx.fillStyle="#000000";
+    ctx.fillRect(0,0,256,16);
+
+    ctx.fillStyle="white";
+    ctx.font="16px monospace";
+
+    ctx.fillText(
+        "LIVES " + livesToDisplay +
+        "   TIME " + player.timeRemaining,
+        4,
+        11
+    );
+}
+
+function render(){
+
+    ctx.fillStyle="black";
+    ctx.fillRect(0,0,256,240);
+
+    if(gameState===State.TITLE){
+
+        ctx.fillStyle="black";
+        ctx.fillRect(0,0,256,240);
+
+        //
+        // Draw logo
+        //
+
+        if(titleLogo.complete){
+
+            // centered
+            ctx.drawImage(
+                titleLogo,
+                18,      // x
+                12,      // y
+                220,     // width
+                96       // height
+            );
+
+        }
+
+        //
+        // Menu text
+        //
+        ctx.textAlign="center";
+        ctx.fillStyle="white";
+        ctx.font="bold 16px monospace";
+
+        ctx.fillText(
+            "START",
+            128,
+            145
+        );
+        ctx.fillText(
+            "(press Enter to play)",
+            128,
+            159
+        );
+
+        //
+        // License
+        //
+    
+        ctx.fillText(
+            "MIT LICENSE",
+            128,
+            214
+        );
+
+        ctx.textAlign="left";
+
+        return;
+
+    }
+
+    if(gameState === State.GAME_OVER){
+
+        ctx.fillStyle = "black";
+        ctx.fillRect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT);
+
+        ctx.fillStyle = "white";
+        ctx.textAlign="center";
+        ctx.fillText(
+            "GAME OVER",
+            128,
+            120
+        );
+        return;
+
+    }
+
+    if(gameState===State.WIN){
+
+        ctx.fillStyle="black";
+        ctx.fillRect(0,0,256,240);
+
+        //
+        // Draw castle
+        //
+        if(winLogo.complete){
+
+            ctx.drawImage(
+                winLogo,
+                18,     // x
+                12,     // y
+                220,    // width
+                110     // height
+            );
+
+        }
+
+        //
+        // Text
+        //
+        ctx.textAlign="center";
+        ctx.fillStyle="white";
+        ctx.font="bold 16px monospace";
+
+        ctx.fillText(
+            "The kingdom celebrates",
+            128,
+            139
+        );
+
+        ctx.fillText(
+            "your bravery.",
+            128,
+            153
+        );
+
+        ctx.fillText(
+            "Thank you for playing!",
+            128,
+            183
+        );
+
+        ctx.fillText(
+            "(press Enter)",
+            128,
+            215
+        );
+
+        ctx.textAlign="left";
+
+        return;
+
+    }
+
+    drawMap();
+
+for(const enemy of enemies){
+
+    if(enemy.type == ENEMY.WOLF){
+
+        drawWolf(enemy);
+
+    }
+    else{
+
+        drawBandit(enemy);
+
+    }
+
+}
+
+if(gameState == State.MISSION_INTRO){
+
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    ctx.fillRect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT);
+
+    ctx.fillStyle = "white";
+    ctx.font = "16px monospace";
+    ctx.textAlign = "center";
+
+    ctx.fillText(
+        "LEVEL " + (currentLevel + 1),
+        SCREEN_WIDTH / 2,
+        SCREEN_HEIGHT / 2 - 10
+    );
+
+    ctx.fillText(
+        currentLevelName.toUpperCase(),
+        SCREEN_WIDTH / 2,
+        SCREEN_HEIGHT / 2 + 10
+    );
+
+    ctx.textAlign = "left";
+}
+
+    if(gameState===State.PAUSE){
+
+        ctx.fillStyle="rgba(0,0,0,0.5)";
+        ctx.fillRect(0,0,256,240);
+
+        ctx.fillStyle="white";
+        ctx.font="16px monospace";
+        ctx.textAlign="center";
+
+        ctx.fillText(
+            "PAUSED",
+            128,
+            120
+        );
+
+        ctx.textAlign="left";
+
+    }
+
+    drawPlayer();
+
+    drawHUD();
+
+    if(gameState === State.END_OF_LIFE){
+
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.fillRect(
+            0,
+            0,
+            SCREEN_WIDTH,
+            SCREEN_HEIGHT
+        );
+
+    }
+
+}
+
+async function loop(){
+
+    await update();
+
+    render();
+
+    requestAnimationFrame(loop);
+
+}
+
+(async function(){
+
+    await loadLevel(LEVEL_FILES[currentLevel]);
+
+    for(const musicFile of MUSIC_FILES){
+        await loadMusic(musicFile);
+    }
+
+    const response = await fetch("EndOfLife1.json");
+    endOfLifeMusic = await response.json();
+
+    resetPositions();
+
+    loop();
+
+})();
+
+
+</script>
+
+</body>
+</html>

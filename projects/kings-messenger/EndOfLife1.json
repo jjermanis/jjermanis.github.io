@@ -1,0 +1,29 @@
+{
+    "name": "LAST BREATH",
+    "description": "A short descending minor phrase. Quiet and tragic, with a medieval NES character.",
+    "bpm": 96,
+    "melody": [
+        "A4",
+        "F4",
+        "E4",
+        "D4"
+    ],
+    "harmony": [
+        "C4",
+        "A3",
+        "A3",
+        "F3"
+    ],
+    "bass": [
+        "A2",
+        "F2",
+        "E2",
+        "D2"
+    ],
+    "drums": [
+        null,
+        null,
+        null,
+        null
+    ]
+}
