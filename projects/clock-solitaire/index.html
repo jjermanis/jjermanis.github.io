@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Clock Solitaire</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='1em' font-size='90' text-anchor='middle' x='50%'>♠</text></svg>">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; }
+
+  :root {
+    --font-rank: 18px;
+    --font-suit: 39px;
+    --font-ui-sm: 12px;
+    --font-ui-md: 14px;
+    --font-ui-lg: 15px;
+    --font-ui-xl: 16px;
+    --font-ui-h2: 20px;
+    --font-ui-h1: 30px;
+    --font-ui-btn: 16px;
+    --font-stock: 28px;
+    --font-bounce: 26px;
+    --font-debug: 11px;
+  }
+
+  body {
+    background: #1a1a1a;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    font-family: Georgia, serif;
+    overflow: hidden;
+  }
+
+  #game-scaler {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  #game-wrapper {
+    position: relative;
+    width: 480px;
+    height: 640px;
+    overflow: hidden;
+    transform-origin: center center;
+  }
+
+  #game-canvas {
+    width: 480px;
+    height: 640px;
+    background: #2d6a2d;
+    background-image:
+      radial-gradient(ellipse at 50% 0%, rgba(60,120,60,0.5) 0%, transparent 70%),
+      repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 20px,
+        rgba(0,0,0,0.03) 20px,
+        rgba(0,0,0,0.03) 40px
+      );
+    position: relative;
+    border-radius: 8px;
+    box-shadow: 0 0 40px rgba(0,0,0,0.8);
+  }
+
+  /* ── GAME HEADER ── */
+  #game-header {
+    position: absolute;
+    top: 12px;
+    left: 0;
+    width: 100%;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.9);
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  #game-title {
+    font-size: 22px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.6);
+  }
+
+  #game-status {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.75);
+    margin-top: 2px;
+  }
+
+  /* ── CARD BASE ── */
+  .card {
+    position: absolute;
+    width: 58px;
+    height: 82px;
+    border-radius: 5px;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    will-change: transform;
+    transition: box-shadow 0.1s;
+  }
+
+  .card.face-down {
+    background: #1a3a8f;
+    background-image:
+      repeating-linear-gradient(
+        45deg,
+        rgba(255,255,255,0.05) 0px,
+        rgba(255,255,255,0.05) 2px,
+        transparent 2px,
+        transparent 8px
+      );
+    border: 1.5px solid #2a4aaf;
+    box-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+  }
+
+  .card.face-up {
+    background: #fff;
+    border: 1.5px solid #ccc;
+    box-shadow: 1px 1px 3px rgba(0,0,0,0.4);
+  }
+
+  .card.active-card {
+    box-shadow: 0 0 12px #ffe600, 2px 4px 10px rgba(0,0,0,0.6);
+    z-index: 500 !important;
+    animation: activePulse 1.8s infinite alternate ease-in-out;
+  }
+
+  @keyframes activePulse {
+    0% { transform: scale(1); box-shadow: 0 0 8px #ffe600, 2px 4px 10px rgba(0,0,0,0.6); }
+    100% { transform: scale(1.05); box-shadow: 0 0 16px #ffea00, 3px 6px 14px rgba(0,0,0,0.7); }
+  }
+
+  .card.dragging {
+    box-shadow: 4px 8px 20px rgba(0,0,0,0.7);
+    z-index: 1000 !important;
+    cursor: grabbing;
+    animation: none;
+  }
+
+  .card.shake {
+    animation: shake 0.4s ease;
+  }
+
+  @keyframes shake {
+    0%   { transform: translateX(0); }
+    20%  { transform: translateX(-5px); }
+    40%  { transform: translateX(5px); }
+    60%  { transform: translateX(-4px); }
+    80%  { transform: translateX(4px); }
+    100% { transform: translateX(0); }
+  }
+
+  /* card inner layout */
+  .card-inner {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: 2px 3px;
+  }
+
+  .card-top-left {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1;
+  }
+
+  .card-top-right {
+    position: absolute;
+    top: 2px;
+    right: 3px;
+    font-size: var(--font-rank);
+    font-weight: bold;
+    font-family: Georgia, serif;
+  }
+
+  .card-rank {
+    font-size: var(--font-rank);
+    font-weight: bold;
+    font-family: Georgia, serif;
+  }
+
+  .card-suit-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: var(--font-suit);
+    line-height: 1;
+  }
+
+  .red { color: #c00; }
+  .black { color: #111; }
+
+  /* ── PLACEHOLDERS & CLOCK LABELS ── */
+  .placeholder {
+    position: absolute;
+    width: 58px;
+    height: 82px;
+    border-radius: 5px;
+    border: 2px dashed rgba(255,255,255,0.25);
+    background: rgba(0,0,0,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+
+  .slot-label {
+    font-size: 18px;
+    font-weight: bold;
+    color: rgba(255, 255, 255, 0.45);
+    font-family: Georgia, serif;
+  }
+
+  .slot-target-highlight {
+    border-color: #ffeb3b !important;
+    background: rgba(255, 235, 59, 0.2) !important;
+  }
+
+  /* ── DIALOGS & OVERLAYS ── */
+  #win-screen, #loss-screen, #confirm-overlay {
+    display: none;
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.65);
+    z-index: 3000;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+  }
+
+  #win-screen.show, #loss-screen.show, #confirm-overlay.show {
+    display: flex;
+  }
+
+  .modal-box {
+    background: #f5f0e8;
+    border-radius: 12px;
+    padding: 32px 36px;
+    text-align: center;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.7);
+    border: 3px solid #c8b860;
+    max-width: 85%;
+  }
+
+  .modal-box h1, .modal-box h2 {
+    font-size: var(--font-ui-h1);
+    color: #2d6a2d;
+    margin-bottom: 10px;
+    font-family: Georgia, serif;
+  }
+
+  #loss-box h1 {
+    color: #8b2020;
+  }
+
+  .modal-box p {
+    color: #555;
+    margin-bottom: 22px;
+    font-family: Georgia, serif;
+    font-size: var(--font-ui-md);
+    line-height: 1.4;
+  }
+
+  .dialog-buttons {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+  }
+
+  .btn {
+    padding: 9px 28px;
+    border: none;
+    border-radius: 6px;
+    font-size: var(--font-ui-lg);
+    font-family: Georgia, serif;
+    cursor: pointer;
+    font-weight: bold;
+    transition: filter 0.15s;
+  }
+
+  .btn:hover { filter: brightness(1.1); }
+
+  .btn-yes {
+    background: #2d6a2d;
+    color: #fff;
+  }
+
+  .btn-no {
+    background: #8b2020;
+    color: #fff;
+  }
+
+  /* ── BUTTONS ── */
+  #btn-new {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.35);
+    color: rgba(255,255,255,0.8);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 5px;
+    padding: 6px 20px;
+    font-size: var(--font-ui-sm);
+    font-family: Georgia, serif;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+  }
+
+  #btn-new:hover {
+    background: rgba(0,0,0,0.55);
+    color: #fff;
+  }
+
+  #btn-undo {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    background: rgba(0,0,0,0.35);
+    color: rgba(255,255,255,0.8);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 5px;
+    padding: 6px 18px;
+    font-size: var(--font-ui-sm);
+    font-family: Georgia, serif;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  #btn-undo:hover {
+    background: rgba(0,0,0,0.55);
+    color: #fff;
+  }
+
+  #btn-undo:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+
+  #cards-left-display {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    color: rgba(255,255,255,0.75);
+    font-size: var(--font-ui-sm);
+    font-family: Georgia, serif;
+    pointer-events: none;
+  }
+
+  /* ── WIN ANIMATION ── */
+  .bounce-card {
+    position: absolute;
+    width: 58px;
+    height: 82px;
+    border-radius: 5px;
+    background: #fff;
+    border: 1.5px solid #ccc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--font-bounce);
+    z-index: 4000;
+    pointer-events: none;
+    animation: bounce-fall linear forwards;
+  }
+
+  @keyframes bounce-fall {
+    0%   { transform: translateY(0); opacity: 1; }
+    80%  { opacity: 1; }
+    100% { transform: translateY(750px); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+  <div id="game-wrapper">
+    <div id="game-canvas">
+      <div id="game-header">
+        <div id="game-title">CLOCK SOLITAIRE</div>
+        <div id="game-status">Drag active card to its clock slot</div>
+      </div>
+    </div>
+
+    <!-- WIN SCREEN -->
+    <div id="win-screen">
+      <div class="modal-box">
+        <h1>🎉 You Win!</h1>
+        <p>Congratulations! All 52 cards are face up!</p>
+        <button class="btn btn-yes" id="btn-win-new">New Game</button>
+      </div>
+    </div>
+
+    <!-- LOSS SCREEN -->
+    <div id="loss-screen">
+      <div class="modal-box" id="loss-box">
+        <h1>Game Over</h1>
+        <p>All 4 Kings are revealed, but face-down cards still remain!</p>
+        <button class="btn btn-yes" id="btn-loss-new">New Game</button>
+      </div>
+    </div>
+
+    <!-- RESTART CONFIRMATION -->
+    <div id="confirm-overlay">
+      <div class="modal-box">
+        <h2>New Game?</h2>
+        <p>Your current game is still in progress.<br>Are you sure you want to restart?</p>
+        <div class="dialog-buttons">
+          <button class="btn btn-yes" id="btn-confirm-yes">Yes</button>
+          <button class="btn btn-no" id="btn-confirm-no">No</button>
+        </div>
+      </div>
+    </div>
+
+    <button id="btn-undo">Undo</button>
+    <button id="btn-new">New Game</button>
+    <div id="cards-left-display">Face up: 0/52</div>
+  </div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  CONSTANTS & CLOCK GEOMETRY
+// ═══════════════════════════════════════════════════════
+const CARD_W = 58, CARD_H = 82;
+const CENTER_X = 240, CENTER_Y = 325;
+const RADIUS = 180;
+
+const SUITS = ['♠','♥','♦','♣'];
+const RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const RED_SUITS = ['♥','♦'];
+
+// Map rank index to clock slot (0=A/1:00, 1=2/2:00 ... 10=J/11:00, 11=Q/12:00, 12=K/Center)
+const SLOT_LABELS = ['1','2','3','4','5','6','7','8','9','10','11','12','K'];
+
+// Compute pixel coordinates for each slot target (0 to 12)
+function getSlotPos(slotIdx) {
+  if (slotIdx === 12) {
+    // Center slot (Kings)
+    return { x: CENTER_X - CARD_W / 2, y: CENTER_Y - CARD_H / 2 };
+  }
+  // Clock positions 1..12
+  const clockNum = slotIdx + 1; // 1 to 12
+  const angleDeg = clockNum * 30 - 90; // 12 o'clock = -90 deg
+  const angleRad = angleDeg * (Math.PI / 180);
+  
+  return {
+    x: Math.round(CENTER_X + RADIUS * Math.cos(angleRad) - CARD_W / 2),
+    y: Math.round(CENTER_Y + RADIUS * Math.sin(angleRad) - CARD_H / 2)
+  };
+}
+
+// ═══════════════════════════════════════════════════════
+//  GAME STATE
+// ═══════════════════════════════════════════════════════
+// 13 slots total. Each slot contains:
+// - downPiles: array of face-down cards
+// - upPiles: array of face-up cards
+let slots = Array.from({ length: 13 }, () => ({ downPiles: [], upPiles: [] }));
+let activeCardState = null; // { card, fromSlot }
+let undoStack = [];
+let gameEnded = false;
+
+function saveState() {
+  undoStack.push({
+    slots: slots.map(s => ({
+      downPiles: s.downPiles.map(c => ({ ...c })),
+      upPiles: s.upPiles.map(c => ({ ...c }))
+    })),
+    activeCardState: activeCardState ? {
+      card: { ...activeCardState.card },
+      fromSlot: activeCardState.fromSlot
+    } : null,
+    gameEnded
+  });
+  updateUndoButton();
+}
+
+function updateUndoButton() {
+  document.getElementById('btn-undo').disabled = undoStack.length === 0 || gameEnded;
+}
+
+function undo() {
+  if (undoStack.length === 0) return;
+  const state = undoStack.pop();
+  slots = state.slots;
+  activeCardState = state.activeCardState;
+  gameEnded = state.gameEnded;
+  
+  document.getElementById('win-screen').classList.remove('show');
+  document.getElementById('loss-screen').classList.remove('show');
+  clearBounceCards();
+  updateUndoButton();
+  render();
+}
+
+// ═══════════════════════════════════════════════════════
+//  DECK & DEALING
+// ═══════════════════════════════════════════════════════
+function makeDeck() {
+  const deck = [];
+  for (const suit of SUITS) {
+    for (let r = 0; r < RANKS.length; r++) {
+      deck.push({
+        suit,
+        rank: RANKS[r],
+        targetSlot: r, // 0..12
+        id: RANKS[r] + suit
+      });
+    }
+  }
+  return deck;
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function rankVal(rank) { return RANKS.indexOf(rank); }
+function isRed(suit) { return RED_SUITS.includes(suit); }
+function cardColor(suit) { return isRed(suit) ? 'red' : 'black'; }
+
+function newGame() {
+  slots = Array.from({ length: 13 }, () => ({ downPiles: [], upPiles: [] }));
+  activeCardState = null;
+  undoStack = [];
+  gameEnded = false;
+
+  document.getElementById('win-screen').classList.remove('show');
+  document.getElementById('loss-screen').classList.remove('show');
+  document.getElementById('confirm-overlay').classList.remove('show');
+  clearBounceCards();
+  updateUndoButton();
+
+  const deck = shuffle(makeDeck());
+  
+  // Deal 4 face-down cards to each of the 13 slots
+  let idx = 0;
+  for (let s = 0; s < 13; s++) {
+    for (let c = 0; c < 4; c++) {
+      slots[s].downPiles.push(deck[idx++]);
+    }
+  }
+
+  // Draw initial active card from center slot (King slot)
+  const initialCard = slots[12].downPiles.pop();
+  activeCardState = {
+    card: initialCard,
+    fromSlot: 12
+  };
+
+  render();
+}
+
+// ═══════════════════════════════════════════════════════
+//  GAME LOGIC & MOVE HANDLING
+// ═══════════════════════════════════════════════════════
+function countFaceUpCards() {
+  let count = 0;
+  for (let s = 0; s < 13; s++) {
+    count += slots[s].upPiles.length;
+  }
+  return count;
+}
+
+function checkGameEndCondition() {
+  const faceUpCount = countFaceUpCards();
+  
+  // Win condition: All 52 cards face up
+  if (faceUpCount === 52) {
+    gameEnded = true;
+    render();
+    setTimeout(() => {
+      document.getElementById('win-screen').classList.add('show');
+      startBounce();
+    }, 300);
+    return true;
+  }
+
+  // Loss condition: 4 Kings placed in center (slot 12), activeCardState is null (no cards left in center downPile),
+  // but there are still face-down cards remaining in other slots.
+  if (slots[12].upPiles.length === 4 && activeCardState === null && faceUpCount < 52) {
+    gameEnded = true;
+    render();
+    setTimeout(() => {
+      document.getElementById('loss-screen').classList.add('show');
+    }, 300);
+    return true;
+  }
+
+  return false;
+}
+
+function executeMoveToSlot(targetSlotIdx) {
+  if (!activeCardState || gameEnded) return false;
+
+  // Validate if active card belongs to targetSlotIdx
+  if (activeCardState.card.targetSlot !== targetSlotIdx) {
+    return false;
+  }
+
+  saveState();
+
+  // Place active card face up into target slot
+  const placedCard = activeCardState.card;
+  slots[targetSlotIdx].upPiles.push(placedCard);
+
+  // Next: draw top face-down card from this target slot
+  if (slots[targetSlotIdx].downPiles.length > 0) {
+    const nextCard = slots[targetSlotIdx].downPiles.pop();
+    activeCardState = {
+      card: nextCard,
+      fromSlot: targetSlotIdx
+    };
+  } else {
+    // Slot has no face down cards left!
+    activeCardState = null;
+  }
+
+  render();
+  checkGameEndCondition();
+  return true;
+}
+
+// ═══════════════════════════════════════════════════════
+//  DOM RENDERING
+// ═══════════════════════════════════════════════════════
+const canvas = document.getElementById('game-canvas');
+
+function render() {
+  // Clear cards and placeholders
+  canvas.querySelectorAll('.card, .placeholder').forEach(e => e.remove());
+
+  // Render 13 slot placeholders & face-down/up piles
+  for (let s = 0; s < 13; s++) {
+    const pos = getSlotPos(s);
+
+    // Placeholder
+    const ph = document.createElement('div');
+    ph.className = 'placeholder';
+    ph.style.left = pos.x + 'px';
+    ph.style.top = pos.y + 'px';
+    
+    const label = document.createElement('span');
+    label.className = 'slot-label';
+    label.textContent = SLOT_LABELS[s];
+    ph.appendChild(label);
+    ph.dataset.slotIdx = s;
+    canvas.appendChild(ph);
+
+    // Face-down pile card (topmost if any remaining)
+    if (slots[s].downPiles.length > 0) {
+      const downEl = document.createElement('div');
+      downEl.className = 'card face-down';
+      downEl.style.left = pos.x + 'px';
+      downEl.style.top = pos.y + 'px';
+      downEl.style.zIndex = 10;
+      canvas.appendChild(downEl);
+    }
+
+    // Face-up placed cards (stacked with slight vertical offset if > 1)
+    for (let u = 0; u < slots[s].upPiles.length; u++) {
+      const uCard = slots[s].upPiles[u];
+      const uEl = makeCardEl(uCard);
+      uEl.style.left = pos.x + 'px';
+      uEl.style.top = (pos.y + Math.min(u * 2, 6)) + 'px';
+      uEl.style.zIndex = 20 + u;
+      canvas.appendChild(uEl);
+    }
+  }
+
+  // Render Active Card (if present)
+  if (activeCardState && !gameEnded) {
+    const pos = getSlotPos(activeCardState.fromSlot);
+    const activeEl = makeCardEl(activeCardState.card);
+    activeEl.classList.add('active-card');
+    
+    // Position slightly offset from origin slot so original pile remains visible
+    activeEl.style.left = pos.x + 'px';
+    activeEl.style.top = pos.y + 'px';
+    activeEl.dataset.active = "true";
+    canvas.appendChild(activeEl);
+  }
+
+  // Update counter
+  document.getElementById('cards-left-display').textContent = `Face up: ${countFaceUpCards()}/52`;
+  updateUndoButton();
+  attachCardEvents();
+}
+
+function makeCardEl(card) {
+  const el = document.createElement('div');
+  el.className = 'card face-up';
+  el.dataset.cardId = card.id;
+
+  const color = cardColor(card.suit);
+  el.innerHTML = `
+    <div class="card-inner">
+      <div class="card-top-left ${color}">
+        <span class="card-rank">${card.rank}</span>
+      </div>
+      <div class="card-top-right ${color}">${card.suit}</div>
+      <div class="card-suit-center ${color}">${card.suit}</div>
+    </div>`;
+  return el;
+}
+
+// ═══════════════════════════════════════════════════════
+//  DRAG & DROP (Lenient Hit-Testing)
+// ═══════════════════════════════════════════════════════
+let drag = null;
+
+function getClientXY(e) {
+  if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  if (e.changedTouches && e.changedTouches.length > 0) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+  return { x: e.clientX, y: e.clientY };
+}
+
+function getZoomScale() {
+  return parseFloat(document.getElementById('game-wrapper').style.zoom) || 1;
+}
+
+function getCanvasRect() {
+  return canvas.getBoundingClientRect();
+}
+
+function startDrag(e, el) {
+  e.preventDefault();
+  if (drag || !activeCardState || gameEnded) return;
+
+  const { x, y } = getClientXY(e);
+  const rect = getCanvasRect();
+  const scale = getZoomScale();
+  const elRect = el.getBoundingClientRect();
+
+  el.classList.add('dragging');
+
+  drag = {
+    el,
+    startX: x,
+    startY: y,
+    originLeft: parseFloat(el.style.left),
+    originTop: parseFloat(el.style.top),
+    offsetX: (x - elRect.left) / scale,
+    offsetY: (y - elRect.top) / scale,
+    isTouch: e.type === 'touchstart'
+  };
+
+  moveDrag(x, y);
+}
+
+function moveDrag(clientX, clientY) {
+  if (!drag) return;
+  const rect = getCanvasRect();
+  const scale = getZoomScale();
+
+  const currentX = (clientX - rect.left) / scale - drag.offsetX;
+  const currentY = (clientY - rect.top) / scale - drag.offsetY;
+
+  drag.el.style.left = currentX + 'px';
+  drag.el.style.top = currentY + 'px';
+
+  // Highlight target slot if hovering nearby
+  const targetSlot = activeCardState.card.targetSlot;
+  const targetPos = getSlotPos(targetSlot);
+  
+  // Center of dragged card
+  const cardCenterX = currentX + CARD_W / 2;
+  const cardCenterY = currentY + CARD_H / 2;
+  
+  // Center of target slot
+  const slotCenterX = targetPos.x + CARD_W / 2;
+  const slotCenterY = targetPos.y + CARD_H / 2;
+
+  const dist = Math.hypot(cardCenterX - slotCenterX, cardCenterY - slotCenterY);
+  
+  // Lenient threshold: within 75px of target slot center
+  const ph = canvas.querySelector(`.placeholder[data-slot-idx="${targetSlot}"]`);
+  if (ph) {
+    if (dist < 75) {
+      ph.classList.add('slot-target-highlight');
+    } else {
+      ph.classList.remove('slot-target-highlight');
+    }
+  }
+}
+
+function endDrag(e) {
+  if (!drag) return;
+  const { x, y } = getClientXY(e);
+  const rect = getCanvasRect();
+  const scale = getZoomScale();
+
+  const currentX = (x - rect.left) / scale - drag.offsetX;
+  const currentY = (y - rect.top) / scale - drag.offsetY;
+
+  // Clear target highlight
+  canvas.querySelectorAll('.placeholder').forEach(p => p.classList.remove('slot-target-highlight'));
+
+  const targetSlot = activeCardState.card.targetSlot;
+  const targetPos = getSlotPos(targetSlot);
+
+  const cardCenterX = currentX + CARD_W / 2;
+  const cardCenterY = currentY + CARD_H / 2;
+  const slotCenterX = targetPos.x + CARD_W / 2;
+  const slotCenterY = targetPos.y + CARD_H / 2;
+
+  const dist = Math.hypot(cardCenterX - slotCenterX, cardCenterY - slotCenterY);
+
+  // Lenient Drop Detection: If dragged within 75px radius of destination
+  let moved = false;
+  if (dist < 75) {
+    moved = executeMoveToSlot(targetSlot);
+  }
+
+  if (!moved) {
+    // Return to starting active position and shake
+    drag.el.classList.remove('dragging');
+    drag.el.style.left = drag.originLeft + 'px';
+    drag.el.style.top = drag.originTop + 'px';
+    
+    drag.el.classList.remove('shake');
+    void drag.el.offsetWidth;
+    drag.el.classList.add('shake');
+  }
+
+  drag = null;
+}
+
+function attachCardEvents() {
+  const activeEl = canvas.querySelector('.card[data-active="true"]');
+  if (!activeEl) return;
+
+  activeEl.addEventListener('mousedown', e => startDrag(e, activeEl));
+  activeEl.addEventListener('touchstart', e => startDrag(e, activeEl), { passive: false });
+}
+
+// Global mouse / touch listeners for drag handling
+document.addEventListener('mousemove', e => {
+  if (!drag) return;
+  e.preventDefault();
+  moveDrag(e.clientX, e.clientY);
+}, { passive: false });
+
+document.addEventListener('mouseup', e => {
+  if (!drag) return;
+  endDrag(e);
+});
+
+document.addEventListener('touchmove', e => {
+  if (!drag) return;
+  e.preventDefault();
+  moveDrag(e.touches[0].clientX, e.touches[0].clientY);
+}, { passive: false });
+
+document.addEventListener('touchend', e => {
+  if (!drag) return;
+  endDrag(e);
+});
+
+// ═══════════════════════════════════════════════════════
+//  WIN CELEBRATION ANIMATION
+// ═══════════════════════════════════════════════════════
+let bounceInterval = null;
+function startBounce() {
+  bounceInterval = setInterval(() => {
+    const suit = SUITS[Math.floor(Math.random() * 4)];
+    const el = document.createElement('div');
+    el.className = 'bounce-card';
+    el.style.left = Math.random() * (480 - 58) + 'px';
+    el.style.top = '-90px';
+    el.style.color = RED_SUITS.includes(suit) ? '#c00' : '#111';
+    el.style.fontSize = '28px';
+    el.textContent = suit;
+    el.style.animationDuration = (1.4 + Math.random() * 1.2) + 's';
+    document.getElementById('game-wrapper').appendChild(el);
+    setTimeout(() => el.remove(), 2500);
+  }, 200);
+}
+
+function clearBounceCards() {
+  if (bounceInterval) { clearInterval(bounceInterval); bounceInterval = null; }
+  document.getElementById('game-wrapper').querySelectorAll('.bounce-card').forEach(e => e.remove());
+}
+
+// ═══════════════════════════════════════════════════════
+//  UI BUTTON CONTROLS
+// ═══════════════════════════════════════════════════════
+document.getElementById('btn-undo').addEventListener('click', undo);
+document.getElementById('btn-win-new').addEventListener('click', newGame);
+document.getElementById('btn-loss-new').addEventListener('click', newGame);
+
+const confirmOverlay = document.getElementById('confirm-overlay');
+
+document.getElementById('btn-new').addEventListener('click', () => {
+  if (gameEnded || countFaceUpCards() === 0) {
+    newGame();
+  } else {
+    confirmOverlay.classList.add('show');
+  }
+});
+
+document.getElementById('btn-confirm-yes').addEventListener('click', () => {
+  confirmOverlay.classList.remove('show');
+  newGame();
+});
+
+document.getElementById('btn-confirm-no').addEventListener('click', () => {
+  confirmOverlay.classList.remove('show');
+});
+
+// ═══════════════════════════════════════════════════════
+//  RESPONSIVE SCALING (Supports 360x600+)
+// ═══════════════════════════════════════════════════════
+function applyScale() {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  // Wrapper natural dimensions: 480 x 640
+  const scaleX = vw / 480;
+  const scaleY = vh / 640;
+  const scale = Math.min(scaleX, scaleY);
+
+  const wrapper = document.getElementById('game-wrapper');
+  wrapper.style.zoom = scale;
+}
+
+window.addEventListener('resize', applyScale);
+window.addEventListener('orientationchange', applyScale);
+applyScale();
+
+// Start initial game
+newGame();
+</script>
+</body>
+</html>
