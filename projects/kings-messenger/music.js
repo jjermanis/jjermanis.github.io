@@ -3,6 +3,7 @@ let musicGain = null;
 let musicSources = [];
 let musicLoopTimer = null;
 let musicPlaying = false;
+let musicMuted = false;
 
 
 function stopMusic(){
@@ -30,6 +31,9 @@ function stopMusic(){
 
 
 function noteFrequency(note){
+
+    if(!note)
+        return 0;
 
     const notes = {
         "C":0,
@@ -206,6 +210,19 @@ function playNoise(
     musicSources.push(source);
 }
 
+function setMuted(muted){
+
+    musicMuted = muted;
+
+    if(musicGain){
+
+        musicGain.gain.value =
+            musicMuted ? 0 : 0.18;
+
+    }
+
+}
+
 function startMusic(song){
 
     stopMusic();
@@ -221,7 +238,8 @@ function startMusic(song){
         musicGain =
             audioContext.createGain();
 
-        musicGain.gain.value = 0.18;
+        musicGain.gain.value =
+            musicMuted ? 0 : 0.18;
 
         musicGain.connect(
             audioContext.destination

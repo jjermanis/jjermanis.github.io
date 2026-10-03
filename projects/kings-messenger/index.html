@@ -23,14 +23,64 @@ canvas{
     image-rendering:crisp-edges;
     border:4px solid white;
 }
+
+#gameArea{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+}
+
+#gameControls{
+    width:100%;
+    display:flex;
+    justify-content:space-between;
+    margin-top:6px;
+}
+
+#muteButton,
+#pauseButton{
+    padding:0;
+    border:none;
+    background:none;
+    color:white;
+    font-size:22px;
+    line-height:24px;
+    cursor:pointer;
+}
+
+#muteButton:focus,
+#pauseButton:focus{
+    outline:none;
+}
+
 </style>
 </head>
 
 <body>
 
-<canvas id="game" width="256" height="240"></canvas>
+<div id="gameArea">
 
-<script src="music.js"></script>
+    <canvas id="game" width="256" height="240"></canvas>
+
+    <div id="gameControls">
+
+        <button id="muteButton"
+                type="button"
+                title="Mute">
+            🔊
+        </button>
+
+        <button id="pauseButton"
+                type="button"
+                title="Pause">
+            ⏸
+        </button>
+
+    </div>
+
+</div>
+
+<script src="music.js?v=2"></script>
 
 <script>
 
@@ -89,7 +139,8 @@ const LEVEL_FILES = [
 const MUSIC_FILES = [
     "Song1.json",
     "Song2.json",
-    "Song3.json"
+    "Song3.json",
+    "Victory1.json"
 ];
 
 const MUSIC_FOR_LEVEL = [
@@ -98,6 +149,8 @@ const MUSIC_FOR_LEVEL = [
     0,
     2
 ];
+
+const VICTORY_MUSIC_INDEX = 3;
 
 const PLAYER_RIGHT_STAND = [
 
@@ -174,36 +227,34 @@ const PLAYER_PALETTE = {
 };
 
 const WOLF_RUN1 = [
-
-"................",
-"...........KK...",
-"...KKKKKKKKLLK..",
-"..KDDDDDDDDLLLLK",
-".KKDDDDDDDDDLLK.",
-"...KDDDDDDDDDK..",
-"..KDDD..DD..D...",
-"..DD.KK....KDD.."
-
+    ".............D..", 
+    "...........GGGG.", 
+    "....GGGGDGGGGGY.", 
+    ".LGGGGGDGGGGGLLL", 
+    "LLGDGGGGLLGLL.LL", 
+    "....LLLD..GL....", 
+    "....L.GD.G.LL...", 
+    "...LL..G....LL.."  
 ];
 
 const WOLF_RUN2 = [
-
-"................",
-"...........KK...",
-"...KKKKKKKKLLK..",
-"..KDDDDDDDDLLLLK",
-".KKDDDDDDDDDLLK.",
-"...KDDDDDDDDDK..",
-"..K.D..DD..DD...",
-"..DD..KK..KK.D.."
-
+    ".............D..", 
+    "..........GGGGG.", 
+    ".....GGGDGGGGGY.", 
+    "LLGGGGDGGGGGGLLL", 
+    ".LGDGGGGLLGLL.LL", 
+    "....DLLLD..LG....", 
+    "....G.LL..LLGG...", 
+    "...G...L..LL....."  
 ];
 
 const WOLF_PALETTE = {
 
     K:"#101010",
     D:"#707070",
-    L:"#E0E0E0"
+    G:"#A0A0A0",
+    L:"#E0E0E0",
+    Y:"#F0C000"
 
 };
 
@@ -361,37 +412,68 @@ let pauseStartTime = 0;
 let gameOverStartTime = 0;
 let endOfLifeStartTime = 0;
 let endOfLifeMusicStartTime = 0;
+let pendingLevelAdvance = false;
+
+let muted = false;
+
+const muteButton =
+    document.getElementById("muteButton");
+
+const pauseButton =
+    document.getElementById("pauseButton");
 
 const keys={};
 
+function toggleMute(){
+
+    muted = !muted;
+
+    setMuted(muted);
+
+    muteButton.textContent =
+        muted ? "🔇" : "🔊";
+
+    muteButton.title =
+        muted ? "Unmute" : "Mute";
+}
+
+function togglePause(){
+
+    if(gameState===State.PLAY){
+
+        pauseStartTime = performance.now();
+        gameState = State.PAUSE;
+
+    }
+    else if(gameState===State.PAUSE){
+
+        gameState = State.PLAY;
+
+        // Prevent the timer from "catching up"
+        lastTimerTick += performance.now() - pauseStartTime;
+
+    }
+
+}
+
 document.addEventListener("keydown",(e)=>{
     keys[e.key]=true;
+
+    if(e.key==="m" || e.key==="M"){
+        toggleMute();
+    }
 
     if(gameState===State.TITLE && e.key==="Enter"){
         startNewGame();
     }
 
     if(gameState===State.WIN && e.key==="Enter"){
+        stopMusic();
         gameState = State.TITLE;
     }
 
     if(e.key==="p" || e.key==="P"){
-
-        if(gameState===State.PLAY){
-
-            pauseStartTime = performance.now();
-            gameState = State.PAUSE;
-
-        }
-        else if(gameState===State.PAUSE){
-
-            gameState = State.PLAY;
-
-            // Prevent the timer from "catching up"
-            lastTimerTick += performance.now() - pauseStartTime;
-
-        }
-
+        togglePause();
     }
 
 });
@@ -417,6 +499,14 @@ canvas.addEventListener("click", (e) => {
 
     }
 
+});
+
+muteButton.addEventListener("click", ()=>{
+    toggleMute();
+});
+
+pauseButton.addEventListener("click", ()=>{
+    togglePause();
 });
 
 async function startNewGame(){
@@ -1407,14 +1497,22 @@ else{
 
         if(currentLevel < LEVEL_FILES.length - 1){
 
-            await nextLevel();
+            pendingLevelAdvance = true;
 
         }
         else{
 
             gameState = State.WIN;
-
+            startMusic(music[VICTORY_MUSIC_INDEX]);
         }
+
+    }
+
+    if(pendingLevelAdvance){
+
+        pendingLevelAdvance = false;
+
+        await nextLevel();
 
     }
 
