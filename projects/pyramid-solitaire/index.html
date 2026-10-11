@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Pyramid Solitaire</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='1em' font-size='90' text-anchor='middle' x='50%'>♠</text></svg>">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; touch-action: manipulation; }
+
+  :root {
+    --font-rank: 18px;
+    --font-suit: 39px;
+    --font-ui-sm: 12px;
+    --font-ui-md: 14px;
+    --font-ui-lg: 15px;
+    --font-ui-xl: 16px;
+    --font-ui-h2: 20px;
+    --font-ui-h1: 30px;
+    --font-ui-btn: 16px;
+    --font-stock: 28px;
+    --font-bounce: 26px;
+  }
+
+  body {
+    background: #1a1a1a;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    font-family: Georgia, serif;
+    overflow: hidden;
+  }
+
+  #game-wrapper {
+    position: relative;
+    width: 480px;
+    height: 640px;
+    overflow: hidden;
+    transform-origin: center center;
+  }
+
+  #game-canvas {
+    width: 480px;
+    height: 640px;
+    background: #2d6a2d;
+    background-image:
+      radial-gradient(ellipse at 50% 0%, rgba(60,120,60,0.5) 0%, transparent 70%),
+      repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 20px,
+        rgba(0,0,0,0.03) 20px,
+        rgba(0,0,0,0.03) 40px
+      );
+    position: relative;
+    border-radius: 8px;
+    box-shadow: 0 0 40px rgba(0,0,0,0.8);
+  }
+
+  /* ── GAME HEADER ── */
+  #game-header {
+    position: absolute;
+    top: 10px;
+    left: 0;
+    width: 100%;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.9);
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  #game-title {
+    font-size: 22px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.6);
+  }
+
+  #game-status {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.85);
+    margin-top: 2px;
+    padding: 0 10px;
+    min-height: 18px;
+  }
+
+  /* ── CARD STYLES ── */
+  .card {
+    position: absolute;
+    width: 58px;
+    height: 82px;
+    border-radius: 5px;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    will-change: transform;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.3s ease;
+  }
+
+  .card.face-down {
+    background: #1a3a8f;
+    background-image:
+      repeating-linear-gradient(
+        45deg,
+        rgba(255,255,255,0.05) 0px,
+        rgba(255,255,255,0.05) 2px,
+        transparent 2px,
+        transparent 8px
+      );
+    border: 1.5px solid #2a4aaf;
+    box-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+  }
+
+  .card.face-up {
+    background: #fff;
+    border: 1.5px solid #ccc;
+    box-shadow: 1px 2px 4px rgba(0,0,0,0.4);
+  }
+
+  .card.selected {
+    box-shadow: 0 0 14px #ffe600, 0 0 4px #ffe600, 2px 4px 10px rgba(0,0,0,0.6);
+    transform: translateY(-4px);
+    z-index: 600 !important;
+    animation: activePulse 1.8s infinite alternate ease-in-out;
+  }
+
+  @keyframes activePulse {
+    0% { box-shadow: 0 0 8px #ffe600, 2px 4px 10px rgba(0,0,0,0.6); }
+    100% { box-shadow: 0 0 18px #ffea00, 3px 6px 14px rgba(0,0,0,0.7); }
+  }
+
+  .card.shake {
+    animation: shake 0.4s ease;
+  }
+
+  @keyframes shake {
+    0%   { transform: translateX(0); }
+    20%  { transform: translateX(-5px); }
+    40%  { transform: translateX(5px); }
+    60%  { transform: translateX(-4px); }
+    80%  { transform: translateX(4px); }
+    100% { transform: translateX(0); }
+  }
+
+  /* Card Inner Layout */
+  .card-inner {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: 2px 3px;
+    pointer-events: none;
+  }
+
+  .card-top-left {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1;
+  }
+
+  .card-top-right {
+    position: absolute;
+    top: 2px;
+    right: 3px;
+    font-size: 18px;
+    font-weight: bold;
+    font-family: Georgia, serif;
+  }
+
+  .card-rank {
+    font-size: 18px;
+    font-weight: bold;
+    font-family: Georgia, serif;
+  }
+
+  .card-suit-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 39px;
+    line-height: 1;
+  }
+
+  .red { color: #c00; }
+  .black { color: #111; }
+
+  /* ── PLACEHOLDERS & STOCK RECYCLE ── */
+  .placeholder {
+    position: absolute;
+    width: 58px;
+    height: 82px;
+    border-radius: 5px;
+    border: 2px dashed rgba(255,255,255,0.25);
+    background: rgba(0,0,0,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+  }
+
+  .placeholder.clickable {
+    cursor: pointer;
+    border-color: rgba(255,255,255,0.5);
+  }
+
+  .placeholder.clickable:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: #ffe600;
+  }
+
+  .recycle-icon {
+    font-size: 26px;
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  /* ── MODALS & OVERLAYS ── */
+  #win-screen, #confirm-overlay {
+    display: none;
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.65);
+    z-index: 3000;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+  }
+
+  #win-screen.show, #confirm-overlay.show {
+    display: flex;
+  }
+
+  .modal-box {
+    background: #f5f0e8;
+    border-radius: 12px;
+    padding: 32px 36px;
+    text-align: center;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.7);
+    border: 3px solid #c8b860;
+    max-width: 85%;
+  }
+
+  .modal-box h1, .modal-box h2 {
+    font-size: var(--font-ui-h1);
+    color: #2d6a2d;
+    margin-bottom: 10px;
+    font-family: Georgia, serif;
+  }
+
+  .modal-box p {
+    color: #555;
+    margin-bottom: 22px;
+    font-family: Georgia, serif;
+    font-size: var(--font-ui-md);
+    line-height: 1.4;
+  }
+
+  .dialog-buttons {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+  }
+
+  .btn {
+    padding: 9px 28px;
+    border: none;
+    border-radius: 6px;
+    font-size: var(--font-ui-lg);
+    font-family: Georgia, serif;
+    cursor: pointer;
+    font-weight: bold;
+    transition: filter 0.15s;
+  }
+
+  .btn:hover { filter: brightness(1.1); }
+
+  .btn-yes {
+    background: #2d6a2d;
+    color: #fff;
+  }
+
+  .btn-no {
+    background: #8b2020;
+    color: #fff;
+  }
+
+  /* ── FOOTER CONTROLS ── */
+  #btn-new {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.35);
+    color: rgba(255,255,255,0.8);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 5px;
+    padding: 6px 20px;
+    font-size: var(--font-ui-sm);
+    font-family: Georgia, serif;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    z-index: 100;
+  }
+
+  #btn-new:hover {
+    background: rgba(0,0,0,0.55);
+    color: #fff;
+  }
+
+  #cards-left-display {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    color: rgba(255,255,255,0.75);
+    font-size: var(--font-ui-sm);
+    font-family: Georgia, serif;
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  /* ── WIN ANIMATION ── */
+  .bounce-card {
+    position: absolute;
+    width: 58px;
+    height: 82px;
+    border-radius: 5px;
+    background: #fff;
+    border: 1.5px solid #ccc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--font-bounce);
+    z-index: 4000;
+    pointer-events: none;
+    animation: bounce-fall linear forwards;
+  }
+
+  @keyframes bounce-fall {
+    0%   { transform: translateY(0); opacity: 1; }
+    80%  { opacity: 1; }
+    100% { transform: translateY(750px); opacity: 0; }
+  }
+
+  #license {
+    position: fixed;
+    bottom: 5px;
+    right: 10px;
+    font-size: 11px;
+    opacity: 0.5;
+  }
+  #license a {
+    color: #aaaaaa;
+    text-decoration: none;
+  }
+  #license a:hover {
+    text-decoration: underline;
+  }
+</style>
+</head>
+<body>
+
+  <div id="game-wrapper">
+    <div id="game-canvas">
+      <div id="game-header">
+        <div id="game-title">PYRAMID SOLITAIRE</div>
+        <div id="game-status">Select two cards summing to 13, or click a King</div>
+      </div>
+    </div>
+
+    <!-- WIN SCREEN -->
+    <div id="win-screen">
+      <div class="modal-box">
+        <h1>🎉 You Win!</h1>
+        <p>Congratulations!<br>You cleared the entire Pyramid!</p>
+        <button class="btn btn-yes" id="btn-win-new">New Game</button>
+      </div>
+    </div>
+
+    <!-- RESTART CONFIRMATION -->
+    <div id="confirm-overlay">
+      <div class="modal-box">
+        <h2>New Game?</h2>
+        <p>Your current game is still in progress.<br>Are you sure you want to restart?</p>
+        <div class="dialog-buttons">
+          <button class="btn btn-yes" id="btn-confirm-yes">Yes</button>
+          <button class="btn btn-no" id="btn-confirm-no">No</button>
+        </div>
+      </div>
+    </div>
+
+    <button id="btn-new">New Game</button>
+    <div id="cards-left-display">Pyramid: 28/28</div>
+  </div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  CONSTANTS & GAME METRICS
+// ═══════════════════════════════════════════════════════
+const CARD_W = 58, CARD_H = 82;
+const SUITS = ['♠','♥','♦','♣'];
+const RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const RED_SUITS = ['♥','♦'];
+
+// Value lookup for Pyramid Solitaire (A=1, 2-10=val, J=11, Q=12, K=13)
+const RANK_VALUES = {
+  'A': 1, '2': 2, '3': 3, '4': 4, '5': 5,
+  '6': 6, '7': 7, '8': 8, '9': 9, '10': 10,
+  'J': 11, 'Q': 12, 'K': 13
+};
+
+// ═══════════════════════════════════════════════════════
+//  STATE VARIABLES
+// ═══════════════════════════════════════════════════════
+let pyramid = []; // Array of 28 objects: { id, suit, rank, value, row, col, removed, element }
+let stock = [];   // Cards remaining in draw pile
+let waste = [];   // Cards in waste pile
+let discarded = []; // Removed cards
+let selectedCard = null; // Currently selected card object { source: 'pyramid'|'waste', index/card }
+let gameEnded = false;
+
+// ═══════════════════════════════════════════════════════
+//  DECK & SETUP FUNCTIONS
+// ═══════════════════════════════════════════════════════
+function makeDeck() {
+  const deck = [];
+  for (const suit of SUITS) {
+    for (const rank of RANKS) {
+      deck.push({
+        suit,
+        rank,
+        value: RANK_VALUES[rank],
+        id: rank + suit + '_' + Math.random().toString(36).substr(2, 4)
+      });
+    }
+  }
+  return deck;
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function isRed(suit) { return RED_SUITS.includes(suit); }
+function cardColor(suit) { return isRed(suit) ? 'red' : 'black'; }
+
+// ═══════════════════════════════════════════════════════
+//  POSITIONS COMPUTATION
+// ═══════════════════════════════════════════════════════
+function getPyramidPos(row, col) {
+  const startY = 55;
+  const rowSpacing = 52; // Overlap vertical spacing
+  const colSpacing = 64; // Horizontal card gap
+
+  const rowWidth = (row + 1) * colSpacing - (colSpacing - CARD_W);
+  const startX = (480 - rowWidth) / 2;
+
+  return {
+    x: Math.round(startX + col * colSpacing),
+    y: Math.round(startY + row * rowSpacing)
+  };
+}
+
+const STOCK_POS = { x: 35, y: 510 };
+const WASTE_POS = { x: 125, y: 510 };
+const DISCARD_POS = { x: 385, y: 510 };
+
+function newGame() {
+  pyramid = [];
+  stock = [];
+  waste = [];
+  discarded = [];
+  selectedCard = null;
+  gameEnded = false;
+
+  document.getElementById('win-screen').classList.remove('show');
+  document.getElementById('confirm-overlay').classList.remove('show');
+  document.getElementById('game-status').textContent = "Select two cards summing to 13, or click a King";
+  clearBounceCards();
+
+  const deck = shuffle(makeDeck());
+
+  // Deal 28 cards to Pyramid (Rows 0 to 6)
+  let deckIdx = 0;
+  for (let r = 0; r < 7; r++) {
+    for (let c = 0; c <= r; c++) {
+      const card = deck[deckIdx++];
+      pyramid.push({
+        ...card,
+        row: r,
+        col: c,
+        removed: false
+      });
+    }
+  }
+
+  // Remaining 24 cards go to stock
+  for (; deckIdx < deck.length; deckIdx++) {
+    stock.push(deck[deckIdx]);
+  }
+
+  render();
+}
+
+// ═══════════════════════════════════════════════════════
+//  PYRAMID UNCOVERED CHECK
+// ═══════════════════════════════════════════════════════
+function getPyramidCard(row, col) {
+  return pyramid.find(c => c.row === row && c.col === col && !c.removed);
+}
+
+function isCardUncovered(card) {
+  if (card.removed) return false;
+  if (card.row === 6) return true; // Bottom row always uncovered if not removed
+
+  // A card at (r, c) is covered by (r+1, c) and (r+1, c+1)
+  const child1 = getPyramidCard(card.row + 1, card.col);
+  const child2 = getPyramidCard(card.row + 1, card.col + 1);
+
+  return !child1 && !child2;
+}
+
+function getPyramidCardsRemaining() {
+  return pyramid.filter(c => !c.removed).length;
+}
+
+// ═══════════════════════════════════════════════════════
+//  GAME ACTIONS & MATCHING
+// ═══════════════════════════════════════════════════════
+function drawCard() {
+  if (gameEnded) return;
+  deselectAll();
+
+  if (stock.length > 0) {
+    waste.push(stock.pop());
+    document.getElementById('game-status').textContent = "Drawn new card from stock.";
+  } else if (waste.length > 0) {
+    // Reset/recycle waste pile into stock
+    stock = waste.reverse();
+    waste = [];
+    document.getElementById('game-status').textContent = "Recycled waste pile back into stock.";
+  }
+  render();
+}
+
+function deselectAll() {
+  selectedCard = null;
+  canvas.querySelectorAll('.card.selected').forEach(el => el.classList.remove('selected'));
+}
+
+function handleCardClick(cardObj, source, el) {
+  if (gameEnded) return;
+
+  // Verify playability
+  if (source === 'pyramid' && !isCardUncovered(cardObj)) {
+    return; // Cannot click locked pyramid card
+  }
+
+  const cardVal = cardObj.value;
+
+  // Single click King removal (King = 13)
+  if (cardVal === 13) {
+    removeCard(cardObj, source);
+    deselectAll();
+    document.getElementById('game-status').textContent = "Removed King!";
+    checkWinCondition();
+    render();
+    return;
+  }
+
+  // If no card is currently selected, select this one
+  if (!selectedCard) {
+    selectedCard = { cardObj, source, el };
+    el.classList.add('selected');
+    document.getElementById('game-status').textContent = `Selected ${cardObj.rank}${cardObj.suit} (${cardVal}). Pick pair summing to 13.`;
+    return;
+  }
+
+  // If user clicks the exact same card, deselect it
+  if (selectedCard.cardObj.id === cardObj.id) {
+    deselectAll();
+    document.getElementById('game-status').textContent = "Selection canceled.";
+    return;
+  }
+
+  // Compare pair sum
+  const sum = selectedCard.cardObj.value + cardVal;
+  if (sum === 13) {
+    // Valid match! Remove both cards
+    const card1 = selectedCard.cardObj;
+    const source1 = selectedCard.source;
+
+    removeCard(card1, source1);
+    removeCard(cardObj, source);
+
+    deselectAll();
+    document.getElementById('game-status').textContent = `Matched ${card1.rank}${card1.suit} + ${cardObj.rank}${cardObj.suit} = 13!`;
+    checkWinCondition();
+    render();
+  } else {
+    // Invalid sum! Trigger shake feedback on newly clicked card
+    el.classList.remove('shake');
+    void el.offsetWidth;
+    el.classList.add('shake');
+
+    document.getElementById('game-status').textContent = `${selectedCard.cardObj.rank} + ${cardObj.rank} = ${sum} (Not 13). Selected ${cardObj.rank}${cardObj.suit}.`;
+    
+    // Switch selection to current clicked card
+    if (selectedCard.el) selectedCard.el.classList.remove('selected');
+    selectedCard = { cardObj, source, el };
+    el.classList.add('selected');
+  }
+}
+
+function removeCard(cardObj, source) {
+  if (source === 'pyramid') {
+    cardObj.removed = true;
+  } else if (source === 'waste') {
+    const idx = waste.findIndex(c => c.id === cardObj.id);
+    if (idx !== -1) waste.splice(idx, 1);
+  }
+  discarded.push(cardObj);
+}
+
+function checkWinCondition() {
+  if (getPyramidCardsRemaining() === 0) {
+    gameEnded = true;
+    document.getElementById('game-status').textContent = "🎉 Pyramid Cleared!";
+    setTimeout(() => {
+      document.getElementById('win-screen').classList.add('show');
+      startBounce();
+    }, 250);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  DOM RENDERING
+// ═══════════════════════════════════════════════════════
+const canvas = document.getElementById('game-canvas');
+
+function makeCardEl(card, isFaceUp = true) {
+  const el = document.createElement('div');
+  el.className = `card ${isFaceUp ? 'face-up' : 'face-down'}`;
+  el.dataset.cardId = card.id;
+
+  if (isFaceUp) {
+    const color = cardColor(card.suit);
+    el.innerHTML = `
+      <div class="card-inner">
+        <div class="card-top-left ${color}">
+          <span class="card-rank">${card.rank}</span>
+        </div>
+        <div class="card-top-right ${color}">${card.suit}</div>
+        <div class="card-suit-center ${color}">${card.suit}</div>
+      </div>`;
+  }
+  return el;
+}
+
+function render() {
+  // Clear non-header elements
+  canvas.querySelectorAll('.card, .placeholder').forEach(e => e.remove());
+
+  // 1. Render Pyramid Cards
+  pyramid.forEach(card => {
+    if (card.removed) return;
+
+    const pos = getPyramidPos(card.row, card.col);
+    const el = makeCardEl(card, true);
+    el.style.left = pos.x + 'px';
+    el.style.top = pos.y + 'px';
+    
+    // Stacking index based on row
+    el.style.zIndex = 10 + card.row * 10 + card.col;
+
+    // Selection state persistence
+    if (selectedCard && selectedCard.cardObj.id === card.id) {
+      el.classList.add('selected');
+      selectedCard.el = el;
+    }
+
+    // Click handler
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      handleCardClick(card, 'pyramid', el);
+    });
+
+    canvas.appendChild(el);
+  });
+
+  // 2. Render Stock / Draw Pile
+  const stockPh = document.createElement('div');
+  stockPh.className = 'placeholder clickable';
+  stockPh.style.left = STOCK_POS.x + 'px';
+  stockPh.style.top = STOCK_POS.y + 'px';
+
+  if (stock.length > 0) {
+    // Show top face-down card
+    const stockEl = document.createElement('div');
+    stockEl.className = 'card face-down';
+    stockEl.style.left = STOCK_POS.x + 'px';
+    stockEl.style.top = STOCK_POS.y + 'px';
+    stockEl.style.zIndex = 30;
+    stockEl.addEventListener('click', drawCard);
+    canvas.appendChild(stockEl);
+  } else {
+    // Stock is empty -> Recycle indicator
+    stockPh.innerHTML = `<span class="recycle-icon">↺</span>`;
+    stockPh.title = "Recycle Waste Pile";
+    stockPh.addEventListener('click', drawCard);
+    canvas.appendChild(stockPh);
+  }
+
+  // 3. Render Waste Pile
+  const wastePh = document.createElement('div');
+  wastePh.className = 'placeholder';
+  wastePh.style.left = WASTE_POS.x + 'px';
+  wastePh.style.top = WASTE_POS.y + 'px';
+  canvas.appendChild(wastePh);
+
+  if (waste.length > 0) {
+    // Show top card of waste pile
+    const topWaste = waste[waste.length - 1];
+    const wasteEl = makeCardEl(topWaste, true);
+    wasteEl.style.left = WASTE_POS.x + 'px';
+    wasteEl.style.top = WASTE_POS.y + 'px';
+    wasteEl.style.zIndex = 40;
+
+    if (selectedCard && selectedCard.cardObj.id === topWaste.id) {
+      wasteEl.classList.add('selected');
+      selectedCard.el = wasteEl;
+    }
+
+    wasteEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      handleCardClick(topWaste, 'waste', wasteEl);
+    });
+
+    canvas.appendChild(wasteEl);
+  }
+
+  // 4. Render Discard Pile Placeholder
+  const discardPh = document.createElement('div');
+  discardPh.className = 'placeholder';
+  discardPh.style.left = DISCARD_POS.x + 'px';
+  discardPh.style.top = DISCARD_POS.y + 'px';
+  canvas.appendChild(discardPh);
+
+  if (discarded.length > 0) {
+    const topDiscard = discarded[discarded.length - 1];
+    const discardEl = makeCardEl(topDiscard, true);
+    discardEl.style.left = DISCARD_POS.x + 'px';
+    discardEl.style.top = DISCARD_POS.y + 'px';
+    discardEl.style.zIndex = 20;
+    discardEl.style.opacity = '0.7';
+    discardEl.style.cursor = 'default';
+    canvas.appendChild(discardEl);
+  }
+
+  // Update Footer Counters
+  const remainingPyramid = getPyramidCardsRemaining();
+  document.getElementById('cards-left-display').textContent = `Pyramid: ${remainingPyramid}/28`;
+}
+
+// Background click deselects
+canvas.addEventListener('click', (e) => {
+  if (e.target === canvas || e.target.id === 'game-header' || e.target.id === 'game-title' || e.target.id === 'game-status') {
+    deselectAll();
+  }
+});
+
+// ═══════════════════════════════════════════════════════
+//  WIN CELEBRATION ANIMATION
+// ═══════════════════════════════════════════════════════
+let bounceInterval = null;
+function startBounce() {
+  bounceInterval = setInterval(() => {
+    const suit = SUITS[Math.floor(Math.random() * 4)];
+    const el = document.createElement('div');
+    el.className = 'bounce-card';
+    el.style.left = Math.random() * (480 - 58) + 'px';
+    el.style.top = '-90px';
+    el.style.color = RED_SUITS.includes(suit) ? '#c00' : '#111';
+    el.style.fontSize = '28px';
+    el.textContent = suit;
+    el.style.animationDuration = (1.4 + Math.random() * 1.2) + 's';
+    document.getElementById('game-wrapper').appendChild(el);
+    setTimeout(() => el.remove(), 2500);
+  }, 200);
+}
+
+function clearBounceCards() {
+  if (bounceInterval) { clearInterval(bounceInterval); bounceInterval = null; }
+  document.getElementById('game-wrapper').querySelectorAll('.bounce-card').forEach(e => e.remove());
+}
+
+// ═══════════════════════════════════════════════════════
+//  UI BUTTON CONTROLS
+// ═══════════════════════════════════════════════════════
+document.getElementById('btn-win-new').addEventListener('click', newGame);
+
+const confirmOverlay = document.getElementById('confirm-overlay');
+
+document.getElementById('btn-new').addEventListener('click', () => {
+  if (gameEnded || getPyramidCardsRemaining() === 0 || (getPyramidCardsRemaining() === 28 && waste.length === 0)) {
+    newGame();
+  } else {
+    confirmOverlay.classList.add('show');
+  }
+});
+
+document.getElementById('btn-confirm-yes').addEventListener('click', () => {
+  confirmOverlay.classList.remove('show');
+  newGame();
+});
+
+document.getElementById('btn-confirm-no').addEventListener('click', () => {
+  confirmOverlay.classList.remove('show');
+});
+
+// ═══════════════════════════════════════════════════════
+//  RESPONSIVE SCALING
+// ═══════════════════════════════════════════════════════
+function applyScale() {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  // Canvas dimensions: 480 x 640
+  const scaleX = vw / 480;
+  const scaleY = vh / 640;
+  const scale = Math.min(scaleX, scaleY);
+
+  const wrapper = document.getElementById('game-wrapper');
+  wrapper.style.zoom = scale;
+}
+
+window.addEventListener('resize', applyScale);
+window.addEventListener('orientationchange', applyScale);
+applyScale();
+
+// Start initial game
+newGame();
+</script>
+
+<div id="license">
+    <a href="../../LICENSE.txt">MIT License</a>
+</div>
+
+</body>
+</html>
