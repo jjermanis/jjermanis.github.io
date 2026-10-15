@@ -9,6 +9,7 @@
   * { margin: 0; padding: 0; box-sizing: border-box; touch-action: manipulation; }
 
   :root {
+    --scale: 1;
     --font-rank: 18px;
     --font-suit: 39px;
     --font-ui-sm: 12px;
@@ -18,8 +19,9 @@
     --font-ui-h2: 20px;
     --font-ui-h1: 30px;
     --font-ui-btn: 16px;
-    --font-stock: 28px;
+    --font-stock: 36px;
     --font-bounce: 26px;
+    --font-debug: 11px;
   }
 
   body {
@@ -166,13 +168,13 @@
     position: absolute;
     top: 2px;
     right: 3px;
-    font-size: 18px;
+    font-size: var(--font-rank);
     font-weight: bold;
     font-family: Georgia, serif;
   }
 
   .card-rank {
-    font-size: 18px;
+    font-size: var(--font-rank);
     font-weight: bold;
     font-family: Georgia, serif;
   }
@@ -182,7 +184,7 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    font-size: 39px;
+    font-size: var(--font-suit);
     line-height: 1;
   }
 
@@ -290,6 +292,35 @@
   }
 
   /* ── FOOTER CONTROLS ── */
+  #btn-undo {
+    position: absolute;
+    bottom: 12px;
+    left: 35px;
+    background: rgba(0,0,0,0.35);
+    color: rgba(255,255,255,0.8);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 5px;
+    padding: 6px 20px;
+    font-size: var(--font-ui-sm);
+    font-family: Georgia, serif;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    z-index: 100;
+  }
+
+  #btn-undo:hover {
+    background: rgba(0,0,0,0.55);
+    color: #fff;
+  }
+
+  #btn-undo:disabled {
+    opacity: 0.35;
+    cursor: default;
+    background: rgba(0,0,0,0.2);
+    color: rgba(255,255,255,0.3);
+    border-color: rgba(255,255,255,0.1);
+  }
+
   #btn-new {
     position: absolute;
     bottom: 12px;
@@ -393,6 +424,7 @@
       </div>
     </div>
 
+    <button id="btn-undo">Undo</button>
     <button id="btn-new">New Game</button>
     <div id="cards-left-display">Pyramid: 28/28</div>
   </div>
@@ -422,6 +454,7 @@ let waste = [];   // Cards in waste pile
 let discarded = []; // Removed cards
 let selectedCard = null; // Currently selected card object { source: 'pyramid'|'waste', index/card }
 let gameEnded = false;
+let undoStack = [];
 
 // ═══════════════════════════════════════════════════════
 //  DECK & SETUP FUNCTIONS
@@ -453,6 +486,40 @@ function isRed(suit) { return RED_SUITS.includes(suit); }
 function cardColor(suit) { return isRed(suit) ? 'red' : 'black'; }
 
 // ═══════════════════════════════════════════════════════
+//  SUPPORT UNDO
+// ═══════════════════════════════════════════════════════
+function saveState() {
+  undoStack.push({
+    pyramid: pyramid.map(c => ({ ...c })),
+    stock: stock.map(c => ({ ...c })),
+    waste: waste.map(c => ({ ...c })),
+    discarded: discarded.map(c => ({ ...c }))
+  });
+  updateUndoButton();
+}
+
+function updateUndoButton() {
+  const btnUndo = document.getElementById('btn-undo');
+  if (btnUndo) {
+    btnUndo.disabled = (undoStack.length === 0 || gameEnded);
+  }
+}
+
+function undo() {
+  if (undoStack.length === 0 || gameEnded) return;
+  
+  const prevState = undoStack.pop();
+  pyramid = prevState.pyramid;
+  stock = prevState.stock;
+  waste = prevState.waste;
+  discarded = prevState.discarded;
+  
+  deselectAll();
+  document.getElementById('game-status').textContent = "Undid last move.";
+  render();
+}
+
+// ═══════════════════════════════════════════════════════
 //  POSITIONS COMPUTATION
 // ═══════════════════════════════════════════════════════
 function getPyramidPos(row, col) {
@@ -469,9 +536,9 @@ function getPyramidPos(row, col) {
   };
 }
 
-const STOCK_POS = { x: 35, y: 510 };
-const WASTE_POS = { x: 125, y: 510 };
-const DISCARD_POS = { x: 385, y: 510 };
+const DISCARD_POS = { x: 35, y: 510 };
+const WASTE_POS = { x: 295, y: 510 };
+const STOCK_POS = { x: 385, y: 510 };
 
 function newGame() {
   pyramid = [];
@@ -480,6 +547,7 @@ function newGame() {
   discarded = [];
   selectedCard = null;
   gameEnded = false;
+  undoStack = [];
 
   document.getElementById('win-screen').classList.remove('show');
   document.getElementById('confirm-overlay').classList.remove('show');
@@ -537,6 +605,7 @@ function getPyramidCardsRemaining() {
 // ═══════════════════════════════════════════════════════
 function drawCard() {
   if (gameEnded) return;
+  saveState();
   deselectAll();
 
   if (stock.length > 0) {
@@ -568,6 +637,7 @@ function handleCardClick(cardObj, source, el) {
 
   // Single click King removal (King = 13)
   if (cardVal === 13) {
+    saveState();
     removeCard(cardObj, source);
     deselectAll();
     document.getElementById('game-status').textContent = "Removed King!";
@@ -595,6 +665,7 @@ function handleCardClick(cardObj, source, el) {
   const sum = selectedCard.cardObj.value + cardVal;
   if (sum === 13) {
     // Valid match! Remove both cards
+    saveState();
     const card1 = selectedCard.cardObj;
     const source1 = selectedCard.source;
 
@@ -633,6 +704,7 @@ function removeCard(cardObj, source) {
 function checkWinCondition() {
   if (getPyramidCardsRemaining() === 0) {
     gameEnded = true;
+    updateUndoButton();
     document.getElementById('game-status').textContent = "🎉 Pyramid Cleared!";
     setTimeout(() => {
       document.getElementById('win-screen').classList.add('show');
@@ -765,6 +837,8 @@ function render() {
     canvas.appendChild(discardEl);
   }
 
+  updateUndoButton();
+
   // Update Footer Counters
   const remainingPyramid = getPyramidCardsRemaining();
   document.getElementById('cards-left-display').textContent = `Pyramid: ${remainingPyramid}/28`;
@@ -805,6 +879,7 @@ function clearBounceCards() {
 // ═══════════════════════════════════════════════════════
 //  UI BUTTON CONTROLS
 // ═══════════════════════════════════════════════════════
+document.getElementById('btn-undo').addEventListener('click', undo);
 document.getElementById('btn-win-new').addEventListener('click', newGame);
 
 const confirmOverlay = document.getElementById('confirm-overlay');
@@ -827,21 +902,41 @@ document.getElementById('btn-confirm-no').addEventListener('click', () => {
 });
 
 // ═══════════════════════════════════════════════════════
-//  RESPONSIVE SCALING
+//  RESPONSIVE SCALING (Supports iPad, Mobile & Desktop)
 // ═══════════════════════════════════════════════════════
 function applyScale() {
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-
-  // Canvas dimensions: 480 x 640
+  const vw = window.visualViewport ? window.visualViewport.width : window.innerWidth;
+  const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  
   const scaleX = vw / 480;
   const scaleY = vh / 640;
   const scale = Math.min(scaleX, scaleY);
-
+  
   const wrapper = document.getElementById('game-wrapper');
   wrapper.style.zoom = scale;
+
+  // Explicitly scale fonts on WebKit/iPadOS Safari where CSS zoom does not resize text
+  const isWebKit = /^((?!chrome|android).)*safari/i.test(navigator.userAgent) || 
+                   (navigator.maxTouchPoints && navigator.maxTouchPoints > 2);
+  const fontScale = isWebKit ? scale : 1;
+
+  document.documentElement.style.setProperty('--font-rank',   (18 * fontScale) + 'px');
+  document.documentElement.style.setProperty('--font-suit',   (39 * fontScale) + 'px');
+  document.documentElement.style.setProperty('--font-ui-sm',  (12 * fontScale) + 'px');
+  document.documentElement.style.setProperty('--font-ui-md',  (14 * fontScale) + 'px');
+  document.documentElement.style.setProperty('--font-ui-lg',  (15 * fontScale) + 'px');
+  document.documentElement.style.setProperty('--font-ui-xl',  (16 * fontScale) + 'px');
+  document.documentElement.style.setProperty('--font-ui-h2',  (20 * fontScale) + 'px');
+  document.documentElement.style.setProperty('--font-ui-h1',  (30 * fontScale) + 'px');
+  document.documentElement.style.setProperty('--font-ui-btn', (16 * fontScale) + 'px');
+  document.documentElement.style.setProperty('--font-stock',  (36 * fontScale) + 'px');
+  document.documentElement.style.setProperty('--font-bounce', (26 * fontScale) + 'px');
+  document.documentElement.style.setProperty('--font-debug',  (11 * fontScale) + 'px');
 }
 
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', applyScale);
+}
 window.addEventListener('resize', applyScale);
 window.addEventListener('orientationchange', applyScale);
 applyScale();
