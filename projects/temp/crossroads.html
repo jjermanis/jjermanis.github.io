@@ -53,6 +53,10 @@
   touch-action: none;
 }
 
+.touch-btn svg {
+  pointer-events: none;
+}
+
 @media (pointer: coarse) {
   .touch-btns {
     display: flex;
@@ -140,7 +144,14 @@
   </div>
 </div>
 <div id="statusRow">
-  <span id="muteBtn" title="Mute" style="cursor:pointer; font-size:24px; user-select:none;">🔊</span>
+  <span id="muteBtn" title="Mute" style="cursor:pointer; user-select:none; -webkit-touch-callout:none; display:inline-flex; align-items:center;">
+    <svg id="muteIcon" viewBox="0 0 28 24" width="28" height="24">
+      <polygon points="3,8 3,16 7,16 13,21 13,3 7,8" fill="#f0c040"/>
+      <path id="muteWave" d="M16,9 Q20,12 16,15" stroke="#f0c040" stroke-width="2" fill="none"/>
+      <path id="muteWave2" d="M18,6 Q24,12 18,18" stroke="#f0c040" stroke-width="2" fill="none"/>
+      <line id="muteLine1" x1="4" y1="4" x2="20" y2="20" stroke="red" stroke-width="2.5" visibility="hidden"/>
+    </svg>
+  </span>
   <div id="footer">&nbsp;</div>
   <span style="width:30px;"></span>
 </div>
@@ -774,7 +785,9 @@ setupTouchButtons();
 
 document.getElementById('muteBtn').addEventListener('click', () => {
   isMuted = !isMuted;
-  document.getElementById('muteBtn').textContent = isMuted ? '🔇' : '🔊';
+  document.getElementById('muteWave').style.visibility  = isMuted ? 'hidden' : 'visible';
+  document.getElementById('muteWave2').style.visibility = isMuted ? 'hidden' : 'visible';
+  document.getElementById('muteLine1').style.visibility = isMuted ? 'visible' : 'hidden';
 });
 
 document.getElementById('footer').addEventListener('click', () => {
