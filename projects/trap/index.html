@@ -64,6 +64,20 @@
     padding: 18px 20px;
   }
 
+  .titleActions {
+    text-align: center;
+  }
+
+  .muteRow {
+    margin-top: 10px;
+  }
+
+  .muteBtn {
+    cursor: pointer;
+    font-size: 24px;
+    user-select: none;
+  }
+
   .rules {
     font-size: 1.25rem;
     color: var(--ink-dim);
@@ -72,6 +86,32 @@
     margin-bottom: 14px;
     letter-spacing: 0.03em;
     line-height: 1.4;
+  }
+
+  .rules a {
+    color: var(--ink);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  .rules a:hover {
+    color: var(--win);
+  }
+
+  dialog {
+    background: var(--panel);
+    color: var(--ink);
+    border: 1px solid var(--ink);
+    border-radius: 4px;
+    padding: 18px 20px;
+    width: calc(100% - 28px);
+    max-width: 580px;
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 0.04em;
+  }
+
+  dialog::backdrop {
+    background: rgba(0, 0, 0, 0.7);
   }
 
   .rules p { margin: 0 0 6px; }
@@ -176,18 +216,54 @@
     color: var(--ink-dim);
     margin-top: 16px;
   }
+
+  /* License MIT used in this file */
+  #license {
+      position: fixed;
+      bottom: 5px;
+      right: 10px;
+      font-size: 12px;
+      opacity: 0.5;
+  }
+  #license a {
+      color: inherit;
+      text-decoration: none;
+  }
+  #license a:hover {
+      text-decoration: underline;
+  }  
+  /* License */
+
 </style>
 </head>
 <body>
-  <div class="wrap">
+  <div class="wrap" id="titleScreen">
+    <h1>TRAP</h1>
+    <div class="panel">
+      <div class="rules">
+        <p>I'm thinking of a number from 1 to 100. You have 6 turns to find it.</p>
+        <p>Each turn, enter two numbers. They mark off a range, like a trap. I'll tell you if my number is inside your range (trapped), above it, or below it. Landing on either of your two numbers counts as inside.</p>
+        <p>To win, name my number exactly by entering the same number in both boxes. Trapping it doesn't win by itself. It just tells you where to look.</p>
+        <p>Example: you enter 20 and 40, and I say "trapped." My number is somewhere from 20 to 40 (inclusive). Next you enter 30 and 30. If my number is 30, you win.</p>
+      </div>
+      <div class="titleActions">
+        <button id="playBtn">PLAY THE GAME</button>
+      </div>
+    </div>
+    <div class="muteRow">
+      <span class="muteBtn" title="Mute">🔊</span>
+    </div>
+  </div>
+
+  <div class="wrap" id="gameScreen" hidden>
     <h1>TRAP</h1>
     <div class="subhead">GUESS THE NUMBER &mdash; 1 TO 100</div>
 
     <div class="panel">
       <div class="rules">
-        <p>I am thinking of a number from 1 to 100. You have 6 turns.</p>
-        <p>Each turn, enter two numbers. Order doesn't matter. If the same number lands on both, and it matches mine, you win outright.</p>
-        <p>Any other guess just tells you if my number is trapped between yours, or above both, or below both.</p>
+        <p>I'm thinking of a number from 1 to 100. You have 6 turns to find it.</p>
+        <p>To win, name my number exactly by entering the same number in both boxes.</p>
+        <p><a href="#" id="rulesLink">Click here for the full rules.</a></p>
       </div>
 
       <div id="log"></div>
@@ -210,11 +286,23 @@
         <span id="gameStatus">GAME IN PROGRESS</span>
       </div>
     </div>
+    <div class="muteRow">
+      <span class="muteBtn" title="Mute">🔊</span>
+    </div>
   </div>
 
+  <dialog id="rulesDialog">
+    <div class="rules" id="rulesDialogText"></div>
+    <div class="titleActions">
+      <button id="closeRulesBtn">CLOSE</button>
+    </div>
+  </dialog>
+
+<script src="rain-music.js"></script>
 <script>
 (function () {
   const MAX_TURNS = 6;
+  const MUSIC_VOLUME = 0.7;
   const CHAR_DELAY_MS = 20;
   const WORD_DELAY_MS = 50;
   const log = document.getElementById('log');
@@ -226,6 +314,7 @@
   const gameStatus = document.getElementById('gameStatus');
 
   let secret, turn, over;
+  let isMuted = false;
 
   function addLine(text, cls) {
     const p = document.createElement('p');
@@ -273,10 +362,10 @@
     tryStatus.textContent = `TRY 1 OF ${MAX_TURNS}`;
     gameStatus.textContent = 'GAME IN PROGRESS';
     if (isFirst) {
-      await typeLine("I'm thinking of a number from 1 to 100. Six turns to trap it.", 'sys');
+      await typeLine("I'm thinking of a number from 1 to 100. Six turns to find it.", 'sys');
     } else {
       addDivider('— NEW GAME —');
-      await typeLine("New number picked. Six turns to trap it.", 'sys');
+      await typeLine("New number picked. Six turns to find it.", 'sys');
     }
     submitBtn.disabled = false;
     numA.value = '';
@@ -370,8 +459,44 @@
     });
   });
 
-  startGame(true);
+  const titleScreen = document.getElementById('titleScreen');
+  const gameScreen = document.getElementById('gameScreen');
+  const playBtn = document.getElementById('playBtn');
+
+  playBtn.addEventListener('click', () => {
+    titleScreen.hidden = true;
+    gameScreen.hidden = false;
+    if (window.RainMusic) RainMusic.start();
+    startGame(true);
+  });
+
+  const rulesDialog = document.getElementById('rulesDialog');
+  document.getElementById('rulesDialogText').innerHTML =
+    titleScreen.querySelector('.rules').innerHTML;
+
+  document.getElementById('rulesLink').addEventListener('click', e => {
+    e.preventDefault();
+    rulesDialog.showModal();
+  });
+
+  document.getElementById('closeRulesBtn').addEventListener('click', () => {
+    rulesDialog.close();
+  });
+
+  const muteBtns = document.querySelectorAll('.muteBtn');
+  muteBtns.forEach(btn => btn.addEventListener('click', () => {
+    isMuted = !isMuted;
+    muteBtns.forEach(b => {
+      b.textContent = isMuted ? '🔇' : '🔊';
+      b.title = isMuted ? 'Unmute' : 'Mute';
+    });
+    if (window.RainMusic) RainMusic.setVolume(isMuted ? 0 : MUSIC_VOLUME);
+  }));
+
 })();
 </script>
 </body>
+<div id="license">
+    <a href="../../LICENSE.txt">MIT License</a>
+</div>
 </html>
